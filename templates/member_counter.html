@@ -14,20 +14,24 @@
       <p>前回の表示 <strong>👥 MEMBERS: {{ counter.last_count }}</strong></p>
     {% endif %}
     {% if counter and counter.channels %}
+      {% set available = counter.channels | selectattr('available') | list %}
+      {% if available | length != counter.channels | length %}
+        <p class="hint">「権限不足」のチャンネルを使うには、Discordで対象チャンネルの「権限」を開き、このBotまたはBotのロールに「チャンネルの管理」を許可してください。</p>
+      {% endif %}
       <form method="post" class="form">
         <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
         <label>ボイスチャンネル
           <select name="channel_id" required>
             <option value="">チャンネルを選択</option>
-            {% for id, name in counter.channels %}
-              <option value="{{ id }}" {% if counter.channel_id == id %}selected{% endif %}>{{ name }}</option>
+            {% for channel in counter.channels %}
+              <option value="{{ channel.id }}" {% if not channel.available %}disabled{% elif counter.channel_id == channel.id %}selected{% endif %}>{{ channel.name }}{% if not channel.available %}（権限不足）{% endif %}</option>
             {% endfor %}
           </select>
         </label>
-        <button type="submit">保存して表示</button>
+        {% if available %}<button type="submit">保存して表示</button>{% endif %}
       </form>
     {% elif state.connected %}
-      <p class="hint">表示用のボイスチャンネルを作成し、Botに「チャンネルの管理」権限を付けてください。</p>
+      <p class="hint">このサーバーにボイスチャンネルが見つかりません。表示用のボイスチャンネルを作成してから、このページを開き直してください。</p>
     {% endif %}
   </section>
   {% if counter and counter.channel_id %}

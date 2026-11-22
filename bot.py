@@ -78,11 +78,13 @@ class ReactionRoleBot(discord.Client):
         ).fetchone()
         channels = []
         if guild is not None and guild.me is not None:
-            channels = [
-                (str(channel.id), channel.name)
-                for channel in guild.voice_channels
-                if channel.permissions_for(guild.me).manage_channels
-            ]
+            for channel in guild.voice_channels:
+                permissions = channel.permissions_for(guild.me)
+                channels.append({
+                    "id": str(channel.id),
+                    "name": channel.name,
+                    "available": permissions.manage_channels,
+                })
         return {
             "channel_id": saved[0] if saved else "",
             "last_count": saved[1] if saved else None,
