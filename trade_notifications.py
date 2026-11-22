@@ -10,6 +10,13 @@ def notify_proposal(db, owner_id, deal_id):
     )
 
 
+def notify_approved(db, buyer_id, deal_id):
+    db.execute(
+        "INSERT OR IGNORE INTO trade_notifications(user_id, kind, ref_id) VALUES (?, 'approved', ?)",
+        (buyer_id, deal_id),
+    )
+
+
 def notify_wanted_item(db, owner_id, offer_id, offered):
     db.execute(
         """INSERT OR IGNORE INTO trade_notifications(user_id, kind, ref_id)
@@ -20,17 +27,29 @@ def notify_wanted_item(db, owner_id, offer_id, offered):
 
 def register_notifications(board, database):
     with database(write=True) as db:
+        schema = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='trade_notifications'"
+        ).fetchone()
+        migrate = schema is not None and "'approved'" not in schema[0]
+        if migrate:
+            db.execute("ALTER TABLE trade_notifications RENAME TO trade_notifications_previous")
         db.execute("""
             CREATE TABLE IF NOT EXISTS trade_notifications (
                 id INTEGER PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES trade_profiles(user_id),
-                kind TEXT NOT NULL CHECK(kind IN ('proposal','wish')),
+                kind TEXT NOT NULL CHECK(kind IN ('proposal','approved','wish')),
                 ref_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 read_at TEXT,
                 UNIQUE(user_id, kind, ref_id)
             )
         """)
+        if migrate:
+            db.execute("""
+                INSERT INTO trade_notifications(id, user_id, kind, ref_id, created_at, read_at)
+                SELECT id, user_id, kind, ref_id, created_at, read_at FROM trade_notifications_previous
+            """)
+            db.execute("DROP TABLE trade_notifications_previous")
         db.execute("CREATE INDEX IF NOT EXISTS trade_notifications_user ON trade_notifications(user_id, id DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS trade_wishes_match ON trade_wishes(name_key, user_id)")
 
@@ -42,8 +61,8 @@ def register_notifications(board, database):
                p.avatar_hash AS actor_avatar, p.default_avatar_index AS actor_default_avatar,
                p.user_id AS actor_id
                FROM trade_notifications n
-               LEFT JOIN trade_deals d ON n.kind='proposal' AND d.id=n.ref_id
-               LEFT JOIN trade_offers o ON o.id=CASE WHEN n.kind='proposal' THEN d.offer_id ELSE n.ref_id END
+               LEFT JOIN trade_deals d ON n.kind IN ('proposal','approved') AND d.id=n.ref_id
+               LEFT JOIN trade_offers o ON o.id=CASE WHEN n.kind='wish' THEN n.ref_id ELSE d.offer_id END
                LEFT JOIN trade_profiles p ON p.user_id=CASE WHEN n.kind='proposal' THEN d.buyer_id ELSE o.owner_id END
     """
 

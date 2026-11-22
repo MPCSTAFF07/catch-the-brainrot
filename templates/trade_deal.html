@@ -27,7 +27,7 @@
       </article>
     {% endif %}
 
-    {% if item.status in ('accepted','completed') and item.discord_channel_id %}
+    {% if item.status == 'accepted' and item.discord_channel_id %}
       <p class="offer-note"><a class="trade-back" href="https://discord.com/channels/{{ item.discord_guild_id }}/{{ item.discord_channel_id }}">Discordの取引チャットを開く ↗</a></p>
     {% endif %}
     {% if item.status == 'pending' and own and not can_approve %}

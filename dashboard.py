@@ -185,6 +185,12 @@ class BotManager:
         if not guild.me.guild_permissions.manage_channels:
             raise ValueError("Botに「チャンネルの管理」権限を付けてから承認してください。")
 
+        if not guild.me.guild_permissions.manage_roles:
+            raise ValueError("Botのサーバーロールに「ロールの管理」権限を付けてから承認してください。")
+
+        active_id, completed_id = bot.trade_categories()
+        active_category = self.trade_category(guild, active_id)
+        self.trade_category(guild, completed_id)
         owner_id, buyer_id = (int(form[key]) for key in ("owner_id", "buyer_id"))
         marker = f'catch-the-brainrot.eggkingdom.com / trade:{form["deal_id"]}'
         try:
@@ -201,11 +207,13 @@ class BotManager:
             visible = {target.id for target, entry in overwrites.items() if entry.view_channel is True}
             if everyone is None or everyone.view_channel is not False or visible != allowed_ids:
                 raise ValueError("既存の取引チャンネルの公開範囲を確認してください。")
+            if channel.category_id != active_category.id:
+                await channel.edit(category=active_category, sync_permissions=False, reason="進行中の取引へ移動")
             return {"guild_id": str(guild.id), "channel_id": str(channel.id)}
 
         participant = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
         channel = await guild.create_text_channel(
-            f'取引-{form["deal_id"]}', topic=marker, reason="ぶれろ鯖サイトで交換提案を承認",
+            f'取引-{form["deal_id"]}', category=active_category, topic=marker, reason="ぶれろ鯖サイトで交換提案を承認",
             overwrites={
                 guild.default_role: discord.PermissionOverwrite(view_channel=False),
                 owner: participant, buyer: participant, guild.me: participant,
@@ -213,14 +221,55 @@ class BotManager:
         )
         return {"guild_id": str(guild.id), "channel_id": str(channel.id)}
 
+    @staticmethod
+    def trade_category(guild, category_id):
+        category = guild.get_channel(int(category_id)) if DISCORD_ID.fullmatch(category_id) else None
+        if not isinstance(category, discord.CategoryChannel):
+            raise ValueError("管理メニューの「取引カテゴリ設定」で進行中・完了カテゴリを設定してください。")
+        if not BotManager.can_manage_trade_category(category, guild.me):
+            raise ValueError("Botが設定先カテゴリを閲覧できることと、「チャンネルの管理」権限があることを確認してください。")
+        return category
+
+    @staticmethod
+    def can_manage_trade_category(category, member):
+        permissions = category.permissions_for(member)
+        return permissions.view_channel and permissions.manage_channels
+
+    async def archive_trade_channel(self, form):
+        bot = self.bot
+        guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+        if guild is None or guild.unavailable or guild.me is None or str(guild.id) != form["guild_id"]:
+            raise ValueError("取引チャンネルのあるDiscordサーバーにBotを接続してください。")
+        _, completed_id = bot.trade_categories()
+        category = self.trade_category(guild, completed_id)
+        try:
+            channel = await bot.fetch_channel(int(form["channel_id"]))
+        except discord.NotFound as error:
+            raise ValueError("取引チャンネルが見つかりません。運営へ連絡してください。") from error
+        marker = f'catch-the-brainrot.eggkingdom.com / trade:{form["deal_id"]}'
+        if not isinstance(channel, discord.TextChannel) or channel.guild.id != guild.id or channel.topic != marker:
+            raise ValueError("取引チャンネルを確認できません。運営へ連絡してください。")
+        if not channel.permissions_for(guild.me).manage_roles:
+            raise ValueError("Botに取引チャンネルの「ロールの管理」権限を付けてください。")
+        await channel.edit(
+            category=category,
+            sync_permissions=False,
+            overwrites={
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                guild.me: discord.PermissionOverwrite(view_channel=True, read_message_history=True),
+            },
+            reason="交換完了のため当事者アクセスを解除",
+        )
+
     async def execute(self, action, form):
-        if action == "trade_channel":
+        if action in {"trade_channel", "archive_trade_channel"}:
+            operation = self.create_trade_channel if action == "trade_channel" else self.archive_trade_channel
             try:
-                return await asyncio.wait_for(self.create_trade_channel(form), timeout=25)
+                return await asyncio.wait_for(operation(form), timeout=25)
             except discord.Forbidden as error:
-                raise ValueError("Discordで取引チャンネルを作成できません。Botの権限を確認してください。") from error
+                raise ValueError("Discordの取引チャンネルを更新できません。Botの権限を確認してください。") from error
             except OSError as error:
-                raise ValueError("Discordに接続できません。しばらくしてから承認をやり直してください。") from error
+                raise ValueError("Discordに接続できません。少し待ってから操作をやり直してください。") from error
         if action == "profile_images":
             bot = self.bot
             if bot is None or bot.is_closed():
@@ -265,6 +314,23 @@ class BotManager:
 
             bot = self.bot
             guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+            if action == "trade_categories_save":
+                if guild is None or guild.me is None:
+                    raise ValueError("BotをDiscordサーバーに接続してから設定してください。")
+                ids = [form.get(key, "").strip() for key in ("active_id", "completed_id")]
+                if ids[0] == ids[1]:
+                    raise ValueError("進行中と完了には別のカテゴリを選んでください。")
+                for category_id in ids:
+                    self.trade_category(guild, category_id)
+                bot.save_trade_categories(*ids)
+                return
+            if action == "trade_categories":
+                return {
+                    "connected": guild is not None,
+                    "chosen": bot.trade_categories() if bot else ("", ""),
+                    "categories": [(str(category.id), category.name, self.can_manage_trade_category(category, guild.me))
+                                   for category in guild.categories] if guild and guild.me is not None else [],
+                }
             if action in {"counter_save", "counter_disable"}:
                 if bot is None or (action == "counter_save" and guild is None):
                     raise ValueError("BotがDiscordに接続してから設定してください。")
@@ -335,7 +401,14 @@ def create_app(manager, admin):
     def create_trade_channel(deal_id, owner_id, buyer_id):
         return manager.call("trade_channel", {"deal_id": deal_id, "owner_id": owner_id, "buyer_id": buyer_id})
 
-    app.register_blueprint(create_trade_board(TRADE_DB, fetch_profile_images, create_trade_channel))
+    def archive_trade_channel(deal_id, guild_id, channel_id):
+        manager.call("archive_trade_channel", {
+            "deal_id": deal_id, "guild_id": guild_id, "channel_id": channel_id,
+        })
+
+    app.register_blueprint(create_trade_board(
+        TRADE_DB, fetch_profile_images, create_trade_channel, archive_trade_channel,
+    ))
     app.register_blueprint(create_support(SUPPORT_DB, TRADE_DB))
 
     def allowed_ids():
@@ -515,6 +588,14 @@ def create_app(manager, admin):
     def remove():
         submit("remove", "登録を解除しました。付与済みのロールはそのままです。")
         return redirect(url_for("reactions"), code=303)
+
+    @app.route("/trade-categories", methods=["GET", "POST"])
+    @admin_required
+    def trade_categories():
+        if request.method == "POST":
+            submit("trade_categories_save", "取引カテゴリを保存しました。")
+            return redirect(url_for("trade_categories"), code=303)
+        return render_template("trade_categories.html", state=manager.call("trade_categories", {}), active="trade_categories")
 
     @app.route("/member-counter", methods=["GET", "POST"])
     @admin_required

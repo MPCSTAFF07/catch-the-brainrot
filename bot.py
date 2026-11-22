@@ -70,7 +70,26 @@ class ReactionRoleBot(discord.Client):
                 last_count INTEGER
             )
         """)
+        database.execute("""
+            CREATE TABLE IF NOT EXISTS trade_categories (
+                id INTEGER PRIMARY KEY CHECK (id=1),
+                active_id TEXT NOT NULL,
+                completed_id TEXT NOT NULL
+            )
+        """)
         database.commit()
+
+    def trade_categories(self):
+        row = self.database.execute("SELECT active_id, completed_id FROM trade_categories WHERE id=1").fetchone()
+        return (row[0], row[1]) if row else ("", "")
+
+    def save_trade_categories(self, active_id, completed_id):
+        with self.database:
+            self.database.execute(
+                """INSERT INTO trade_categories VALUES (1, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET active_id=excluded.active_id, completed_id=excluded.completed_id""",
+                (active_id, completed_id),
+            )
 
     def counter_state(self, guild):
         saved = self.database.execute(

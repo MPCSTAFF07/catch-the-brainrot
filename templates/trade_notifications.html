@@ -3,6 +3,9 @@
 {% block title %}通知{% endblock %}
 {% block content %}
 <h1>通知</h1>
+{% set titles = {'proposal': '提案が届きました', 'approved': '提案が承認されました', 'wish': '欲しいキャラの出品'} %}
+{% set types = {'proposal': '提案', 'approved': '承認', 'wish': '欲しいキャラ'} %}
+{% set headings = {'proposal': '交換の提案が届きました', 'approved': '交換の提案が承認されました', 'wish': '欲しいキャラが出品されました'} %}
 <div class="notification-layout">
   <section class="trade-compose notification-list" aria-label="通知一覧">
     <h2>すべての通知</h2>
@@ -11,7 +14,7 @@
         <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
         <input type="hidden" name="page" value="{{ page }}">
         <button type="submit" class="notification-row{% if not entry.read_at %} is-unread{% endif %}" {% if selected and selected.id == entry.id %}aria-current="true"{% endif %}>
-          <span>{{ '提案が届きました' if entry.kind == 'proposal' else '欲しいキャラの出品' }}</span>
+          <span>{{ titles[entry.kind] }}</span>
           <strong>{{ entry.offered or '募集' }}</strong>
           {% if not entry.read_at %}<small>未読</small>{% endif %}
         </button>
@@ -28,8 +31,8 @@
   </section>
   <section class="trade-compose notification-content" aria-label="通知の内容">
     {% if selected %}
-      <p class="notification-type">{{ '提案' if selected.kind == 'proposal' else '欲しいキャラ' }}</p>
-      <h2>{{ '交換の提案が届きました' if selected.kind == 'proposal' else '欲しいキャラが出品されました' }}</h2>
+      <p class="notification-type">{{ types[selected.kind] }}</p>
+      <h2>{{ headings[selected.kind] }}</h2>
       {% if selected.actor_id %}
         {{ person(selected.actor_id, selected.actor_name, selected.actor_avatar, selected.actor_default_avatar, link=true) }}
       {% endif %}
@@ -41,6 +44,9 @@
         <p>この提案は却下済みです。</p>
       {% elif selected.kind == 'proposal' %}
         <a class="notification-link" href="{{ url_for('trade.deal', deal_id=selected.ref_id) }}">提案を見る →</a>
+      {% elif selected.kind == 'approved' %}
+        {% if selected.proposal_status == 'accepted' %}<p>取引画面からDiscordの取引チャットを開けます。</p>{% endif %}
+        <a class="notification-link" href="{{ url_for('trade.deal', deal_id=selected.ref_id) }}">取引を見る →</a>
       {% elif selected.offer_id %}
         {% if selected.closed_at %}<p>この募集は締め切られました。</p>{% endif %}
         <a class="notification-link" href="{{ url_for('trade.offer', offer_id=selected.offer_id) }}">募集を見る →</a>

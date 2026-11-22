@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}取引カテゴリ設定{% endblock %}
+{% block content %}
+  <h1>取引カテゴリ設定</h1>
+  {% if not state.connected %}
+    <p class="notice">Botを接続すると、Discordのカテゴリを選べます。 <a href="{{ url_for('settings') }}">Bot設定</a></p>
+  {% endif %}
+  <section class="panel">
+    <h2>Discordの保存先</h2>
+    <p class="hint">提案を承認すると進行中カテゴリに取引チャットが作られます。双方が完了を確認すると、完了カテゴリに移動して当事者の閲覧権限を解除します。</p>
+    {% if state.categories %}
+      <p class="hint">Botのサーバーロールに「チャンネルの管理」と「ロールの管理」を付け、両方のカテゴリをBotが閲覧できるようにしてください。</p>
+      <form method="post" class="form">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        {% for field, label, chosen in [('active_id', '進行中の取引', state.chosen[0]), ('completed_id', '完了した取引', state.chosen[1])] %}
+          <label>{{ label }}
+            <select name="{{ field }}" required>
+              <option value="">カテゴリを選択</option>
+              {% for id, name, available in state.categories %}
+                <option value="{{ id }}" {% if id == chosen %}selected{% endif %} {% if not available %}disabled{% endif %}>{{ name }}{% if not available %}（権限不足）{% endif %}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endfor %}
+        <button type="submit">保存</button>
+      </form>
+    {% elif state.connected %}
+      <p class="hint">Discordで2つのカテゴリを作成してから、このページを開き直してください。</p>
+    {% endif %}
+  </section>
+{% endblock %}

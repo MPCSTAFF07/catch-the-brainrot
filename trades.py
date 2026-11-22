@@ -6,7 +6,7 @@ from flask import Blueprint, Response, abort, flash, redirect, render_template, 
 
 from offer_photos import MAX_PHOTO_BYTES, prepare_offer_photo
 from trade_profiles import register_profiles, save_profile
-from trade_notifications import notify_proposal, notify_wanted_item, register_notifications
+from trade_notifications import notify_approved, notify_proposal, notify_wanted_item, register_notifications
 
 PAGE_SIZE = 24
 PROVISION_TIMEOUT = 90
@@ -17,7 +17,7 @@ DEAL_STATUS = {
 }
 
 
-def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=None):
+def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=None, archive_trade_channel=None):
     board = Blueprint("trade", __name__)
 
     @contextmanager
@@ -365,13 +365,64 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             )
             if not saved.rowcount:
                 abort(409)
+            notify_approved(db, item["buyer_id"], deal_id)
         flash("提案を承認し、Discordに取引チャットを作成しました。", "success")
+
+    def record_completion(db, item, column):
+        db.execute(
+            f"""UPDATE trade_deals SET {column}=1, status='completed', provision_started_at=NULL
+                WHERE id=?""",
+            (item["id"],),
+        )
+        db.execute("UPDATE trade_offers SET closed_at=CURRENT_TIMESTAMP WHERE id=?", (item["offer_id"],))
+        reject_other_proposals(db, item["offer_id"])
+        flash("双方が確認したので、交換を完了して募集を締め切りました。", "success")
+
+    def complete_with_discord(deal_id):
+        started = int(time.time())
+        with database(write=True) as db:
+            item = visible_deal(db, deal_id)
+            if item["status"] != "accepted":
+                abort(409)
+            if item["provision_started_at"] and item["provision_started_at"] > started - PROVISION_TIMEOUT:
+                flash("Discordの取引チャットを処理中です。少し待ってから開き直してください。", "error")
+                return
+            owner = item["owner_id"] == session["discord_id"]
+            column = "owner_done" if owner else "buyer_done"
+            if not item["buyer_done" if owner else "owner_done"]:
+                db.execute(f"UPDATE trade_deals SET {column}=1 WHERE id=?", (deal_id,))
+                flash("完了申請を送りました。相手の確認を待っています。", "success")
+                return
+            if not item["discord_channel_id"]:
+                record_completion(db, item, column)
+                return
+            db.execute("UPDATE trade_deals SET provision_started_at=? WHERE id=?", (started, deal_id))
+        try:
+            if archive_trade_channel is None:
+                raise ValueError("Discordの取引チャットを完了カテゴリに移動できません。")
+            archive_trade_channel(deal_id, item["discord_guild_id"], item["discord_channel_id"])
+        except ValueError as error:
+            with database(write=True) as db:
+                db.execute(
+                    "UPDATE trade_deals SET provision_started_at=NULL WHERE id=? AND provision_started_at=?",
+                    (deal_id, started),
+                )
+            flash(str(error), "error")
+            return
+        with database(write=True) as db:
+            current = visible_deal(db, deal_id)
+            if current["status"] != "accepted" or current["provision_started_at"] != started:
+                abort(409)
+            record_completion(db, current, column)
 
     @board.post("/trade/deals/<int:deal_id>/action")
     def deal_action(deal_id):
         action = request.form.get("action")
         if action == "accept":
             approve_with_discord(deal_id)
+            return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
+        if action == "complete":
+            complete_with_discord(deal_id)
             return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
 
         with database(write=True) as db:
@@ -388,19 +439,6 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 (status == "pending" and not owner)
             ):
                 db.execute("UPDATE trade_deals SET status='cancelled' WHERE id=?", (deal_id,))
-            elif action == "complete" and status == "accepted":
-                column = "owner_done" if owner else "buyer_done"
-                db.execute(f"UPDATE trade_deals SET {column}=1 WHERE id=?", (deal_id,))
-                done = db.execute(
-                    "SELECT owner_done AND buyer_done FROM trade_deals WHERE id=?", (deal_id,),
-                ).fetchone()[0]
-                if done:
-                    db.execute("UPDATE trade_deals SET status='completed' WHERE id=?", (deal_id,))
-                    db.execute("UPDATE trade_offers SET closed_at=CURRENT_TIMESTAMP WHERE id=?", (item["offer_id"],))
-                    reject_other_proposals(db, item["offer_id"])
-                    flash("双方が確認したので、交換を完了して募集を締め切りました。", "success")
-                else:
-                    flash("完了申請を送りました。相手の確認を待っています。", "success")
             else:
                 abort(409)
         return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
