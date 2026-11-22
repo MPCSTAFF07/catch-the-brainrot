@@ -123,11 +123,12 @@ def create_trade_board(db_path):
             "trade.html", offers=rows[:PAGE_SIZE], query=query, mine=mine,
             page=page, has_next=len(rows) > PAGE_SIZE, sort=sort,
             categories=CATEGORIES, category=category, active="trade",
+            mode="post" if request.args.get("mode") == "post" else "search",
         )
 
     @board.get("/trade/new")
     def new():
-        return render_template("trade_new.html", categories=CATEGORIES, active="trade")
+        return redirect(url_for("trade.index", mode="post"))
 
     @board.post("/trade/post")
     def post():

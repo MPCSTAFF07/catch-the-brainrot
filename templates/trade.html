@@ -1,10 +1,18 @@
 {% extends "base.html" %}
-{% block title %}交換を探す{% endblock %}
+{% block title %}{{ "交換に出す" if mode == "post" else "交換を探す" }}{% endblock %}
 {% block content %}
-  <header class="trade-hero">
-    <h1>交換を探す</h1>
-    <a class="trade-post" href="{{ url_for('trade.new') }}">＋ 交換に出す</a>
-  </header>
+  <script src="{{ url_for('static', filename='trade-switch.js') }}" defer></script>
+  {% set filters = dict(q=query or none, category=category or none, sort=sort if sort != 'new' else none, mine=1 if mine else none, page=page if page > 1 else none) %}
+  <nav class="trade-switch" aria-label="交換メニュー">
+    <a class="trade-mode trade-mode-search" data-trade-mode="search" href="{{ url_for('trade.index', **filters) }}" {% if mode == 'search' %}aria-current="page"{% endif %}>
+      <span>探す</span>
+    </a>
+    <a class="trade-mode trade-mode-post" data-trade-mode="post" href="{{ url_for('trade.index', mode='post', **filters) }}" {% if mode == 'post' %}aria-current="page"{% endif %}>
+      <span>出す</span>
+    </a>
+  </nav>
+
+  <section data-trade-pane="search" aria-label="交換を探す" {% if mode != 'search' %}hidden{% endif %}>
 
   <nav class="trade-tabs" aria-label="交換募集の表示">
     <a href="{{ url_for('trade.index', q=query, category=category, sort=sort) }}" {% if not mine %}aria-current="page"{% endif %}>すべての募集</a>
@@ -50,4 +58,8 @@
       {% if has_next %}<a href="{{ url_for('trade.index', q=query, category=category, sort=sort, mine=1 if mine else none, page=page+1) }}">次のページ</a>{% endif %}
     </nav>
   {% endif %}
+  </section>
+  <section data-trade-pane="post" aria-label="交換に出す" {% if mode != 'post' %}hidden{% endif %}>
+    {% include "trade_new.html" %}
+  </section>
 {% endblock %}

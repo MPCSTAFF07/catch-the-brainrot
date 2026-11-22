@@ -21,33 +21,9 @@
 .trade-page .site-nav .nav-group { color: var(--trade-accent); }
 .trade-page .hint { color: var(--trade-muted); }
 .trade-page .logout button { background: transparent; border-color: var(--trade-border); color: #e9e1f0; border-radius: 0; }
-.trade-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 205px;
-  margin-bottom: 24px;
-  padding: 26px 22px;
-  border-bottom: 4px solid var(--trade-pink);
-  background:
-    linear-gradient(90deg, #24162f 8%, rgb(36 22 47 / 94%) 33%, rgb(36 22 47 / 24%) 84%),
-    url("brainrot-login.webp") right 50% / auto 215% no-repeat,
-    #24162f;
-  clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
-}
 .trade-page h1, .trade-page h2 { font-weight: 950; }
 .trade-page h1 { font-size: clamp(26px, 5vw, 40px); line-height: 1.13; overflow-wrap: anywhere; }
-.trade-hero h1 {
-  margin: 0;
-  color: #e9e1f0;
-  font-size: clamp(34px, 6vw, 62px);
-  transform: skew(-6deg);
-  letter-spacing: -0.06em;
-  text-shadow: 2px 2px #291c35, 0 2px 10px #17101e;
-}
-.trade-post, .trade-page main button[type="submit"] {
+.trade-page main button[type="submit"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -62,9 +38,9 @@
   text-decoration: none;
   clip-path: var(--trade-cut);
 }
-.trade-post:hover, .trade-page main button[type="submit"]:hover { filter: brightness(0.87); }
+.trade-page main button[type="submit"]:hover { filter: brightness(0.87); }
 .trade-page :focus-visible { outline: 2px solid var(--trade-pink); outline-offset: 3px; }
-.trade-page .trade-post:focus-visible, .trade-page button:focus-visible { outline-offset: -5px; outline-color: #432957; }
+.trade-page button:focus-visible { outline-offset: -5px; outline-color: #432957; }
 .trade-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 .trade-tabs a { border-radius: 0; border-bottom: 2px solid var(--trade-border); background: var(--trade-surface); }
 .trade-tabs a[aria-current] { border-color: var(--trade-accent); color: var(--trade-accent); }
@@ -131,9 +107,72 @@
   .trade-search input[type="search"] { grid-column: 1 / -1; }
 }
 @media (max-width: 650px) {
-  .trade-hero { min-height: 158px; padding: 14px; }
-  .trade-hero h1 { text-shadow: 1px 2px #24162f, 0 0 8px #24162f; }
-  .trade-hero .trade-post { padding-inline: 12px; }
   .trade-compose { padding: 15px; }
   .trade-compose .fields, .offer-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+.trade-switch {
+  --split-top: 55%;
+  --split-bottom: 45%;
+  position: relative;
+  isolation: isolate;
+  display: block;
+  height: clamp(139px, 23vw, 238px);
+  overflow: hidden;
+  margin-bottom: 22px;
+  background: #201b26;
+}
+
+.trade-switch .trade-mode {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  padding: 17px 22px;
+  border-radius: 0;
+  background:
+    linear-gradient(0deg, rgb(14 10 21 / 88%), transparent 78%),
+    url("brainrot-trade.webp") center / cover no-repeat;
+  color: #eee9f4;
+  filter: grayscale(1) brightness(0.82);
+  transition: filter 180ms ease;
+}
+.trade-switch .trade-mode[aria-current] {
+  background:
+    linear-gradient(0deg, rgb(27 12 43 / 84%), transparent 78%),
+    url("brainrot-trade.webp") center / cover no-repeat;
+  filter: none;
+  box-shadow: inset 0 -4px #f2abd2;
+}
+.trade-switch .trade-mode-search {
+  clip-path: polygon(0 0, var(--split-top) 0, var(--split-bottom) 100%, 0 100%);
+}
+.trade-switch .trade-mode-post {
+  padding-left: calc(var(--split-top) + 16px);
+  clip-path: polygon(var(--split-top) 0, 100% 0, 100% 100%, var(--split-bottom) 100%);
+}
+
+.trade-mode span {
+  justify-self: start;
+  padding: 3px 14px 5px;
+  background: #1d1726;
+  border-left: 3px solid #9f98aa;
+  font-size: clamp(23px, 5vw, 44px);
+  font-weight: 900;
+  line-height: 1.15;
+}
+.trade-mode[aria-current] span { background: #3a2247; border-color: #f2abd2; }
+.trade-mode:focus-visible { outline-offset: -4px; }
+.trade-mode:focus-visible span { outline: 2px solid #eed5ff; outline-offset: 4px; }
+
+[data-trade-pane="post"] > .trade-compose { margin-top: 0; }
+
+@media (max-width: 650px) {
+  .trade-switch .trade-mode, .trade-switch .trade-mode[aria-current] { background-size: 100% 100%; }
+  .trade-switch .trade-mode { padding: 12px; }
+  .trade-switch .trade-mode-post { padding-left: calc(var(--split-top) + 7px); }
+  .trade-mode span { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trade-switch .trade-mode { transition: none; }
 }
