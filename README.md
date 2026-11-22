@@ -9,6 +9,16 @@ Discordサーバーの管理画面です。左のメニューからBotの接続�
 3. サーバー設定で、Botのロールを付与対象のロールより上に置きます。
 4. Discordの開発者モードを有効にし、サーバーIDをコピーします。
 
+## Discordログインの準備
+
+Discord Developer Portalのアプリで「OAuth2」を開き、Redirectsに次のURLを追加して保存します。
+
+```text
+https://catch-the-brainrot.eggkingdom.com/auth/discord/callback
+```
+
+OAuth2のClient IDとClient Secret、最初にログインする管理者のDiscord **ユーザーID**を用意します。Client SecretはEC2の初回設定で入力し、Botトークンは管理画面にログインしてから設定します。同じDiscordアプリをBotとログインに使えます。
+
 ## EC2で起動
 
 Ubuntuの `ubuntu` ユーザーで、EC2のSSHターミナルから実行してください。既存のNginxとCertbotを使います。作業前にDNSで `catch-the-brainrot.eggkingdom.com` のAレコードをEC2のパブリックIPv4アドレスに向けます。
@@ -26,7 +36,7 @@ Ubuntuの `ubuntu` ユーザーで、EC2のSSHターミナルから実行して�
   cd catch-the-brainrot
   python3 -m venv .venv
   .venv/bin/python -m pip install -r requirements.txt
-  if [ ! -f .web-admin.json ]; then
+  if ! .venv/bin/python -c 'from dashboard import ADMIN_FILE, read_settings; config = read_settings(ADMIN_FILE); raise SystemExit(not all(config.get(key) for key in ("admin_ids", "client_id", "client_secret")))'; then
     .venv/bin/python dashboard.py init-admin
   fi
   sudo install -m 644 deploy/catch-the-brainrot.service /etc/systemd/system/catch-the-brainrot.service
@@ -36,7 +46,7 @@ Ubuntuの `ubuntu` ユーザーで、EC2のSSHターミナルから実行して�
 )
 ```
 
-初回のパスワード設定はWeb管理画面にログインするためのものです。Botトークンは後からWebで設定します。既存の `.env` がある環境では、Webで設定を保存するまでは既存のBot設定を読み込みます。
+初回設定では、管理者のDiscordユーザーIDとOAuth2のClient ID・Client Secretを入力します。旧パスワード版を使用していた場合も、更新時に同じ入力が必要です。Botトークンは後からWebで設定します。既存の `.env` がある環境では、Webで設定を保存するまでは既存のBot設定を読み込みます。
 
 DNSがEC2に向いたら、同じターミナルでこのサブドメイン用のNginx設定とHTTPSを有効にします。既存のサブドメインと同じ名前を使っている場合は、先にその設定を確認してください。
 
@@ -56,16 +66,20 @@ DNSがEC2に向いたら、同じターミナルでこのサブドメイン用�
 
 ## Webで設定
 
-1. [管理画面](https://catch-the-brainrot.eggkingdom.com)を開き、設定した管理パスワードでログインします。
+1. [管理画面](https://catch-the-brainrot.eggkingdom.com)を開き、「Discordでログイン」を押します。登録済みのDiscordアカウントでログインしてください。
 2. 左の「Bot設定」でDiscordサーバーIDとトークンを入力し、「保存して接続」を押します。少し待ってから画面を更新し、「接続中」を確認します。
 3. 「リアクションロール」で、既存の案内メッセージのリンク、絵文字、ロールを入力して登録します。Botが対象メッセージに絵文字を付けます。
 4. 一般メンバーで絵文字を押すとロールが付き、通常リアクションを外すとロールも外れます。各ロールにつき登録は1つです。手動で同じロールを持っている場合も、通常リアクションを外すとロールが外れるため、通知用などの専用ロールを使ってください。
 
 WebまたはDiscordの `/reaction-role add`、`list`、`remove` で同じ登録を管理できます。登録を解除しても、すでに付与したロールは維持されます。運用開始前やBot停止中のリアクションの変更はさかのぼって反映しません。
 
+## 管理者の追加・削除
+
+左の「管理者」からユーザーIDを追加します。削除すると、そのアカウントは開いていたセッションでも次の画面操作から管理権限を失います。初期管理者を変更する場合は、EC2で `.venv/bin/python dashboard.py init-admin` を実行し、サービスを再起動してください。追加済みの管理者は維持されます。
+
 ## 更新とログ
 
-初回起動手順の最初のコマンドを再実行すると、ソースと依存関係を更新しサービスを再起動します。Web管理者設定、Botトークン、SQLiteの設定データはEC2内に保存されます。復旧用バックアップを取る場合は、EC2内で所有者だけが読み取れる場所に保管してください。
+初回起動手順の最初のコマンドを再実行すると、ソースと依存関係を更新しサービスを再起動します。Discordログイン設定、Botトークン、SQLiteの設定データはEC2内に保存されます。復旧用バックアップを取る場合は、EC2内で所有者だけが読み取れる場所に保管してください。
 
 ```bash
 sudo systemctl status catch-the-brainrot.service --no-pager

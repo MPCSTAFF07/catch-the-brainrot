@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}管理者{% endblock %}
+{% block content %}
+  <h1>管理者</h1>
+  <section class="panel">
+    <h2>管理者を追加</h2>
+    <form class="form" method="post" action="{{ url_for('change_admins', action='add') }}">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <label>DiscordユーザーID
+        <input name="user_id" inputmode="numeric" pattern="[1-9][0-9]{16,19}" maxlength="20" required>
+      </label>
+      <button type="submit">追加</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>登録済みの管理者</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>DiscordユーザーID</th><th>操作</th></tr></thead>
+        <tbody>
+        {% for id in admins %}
+          <tr>
+            <td>{{ id }}{% if id == session['discord_id'] %}（自分）{% endif %}</td>
+            <td>
+              {% if loop.first %}初期管理者
+              {% elif id != session['discord_id'] %}
+                <form method="post" action="{{ url_for('change_admins', action='remove') }}">
+                  <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+                  <input type="hidden" name="user_id" value="{{ id }}">
+                  <button class="quiet danger" type="submit">削除</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

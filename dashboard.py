@@ -18,13 +18,40 @@ import discord
 from dotenv import dotenv_values
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from waitress import serve
-from werkzeug.security import check_password_hash, generate_password_hash
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
 
 ADMIN_FILE = ROOT / ".web-admin.json"
 BOT_FILE = ROOT / ".web-bot.json"
 LOG = logging.getLogger("dashboard")
+CALLBACK_URL = "https://catch-the-brainrot.eggkingdom.com/auth/discord/callback"
+DISCORD_API = "https://discord.com/api/v10"
+DISCORD_ID = re.compile(r"[1-9][0-9]{16,19}")
+
+
+def discord_identity(admin, code):
+    data = urlencode({
+        "client_id": admin["client_id"],
+        "client_secret": admin["client_secret"],
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": CALLBACK_URL,
+    }).encode()
+    exchange = Request(
+        f"{DISCORD_API}/oauth2/token", data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urlopen(exchange, timeout=8) as response:
+        access_token = json.load(response)["access_token"]
+    profile = Request(
+        f"{DISCORD_API}/users/@me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    with urlopen(profile, timeout=8) as response:
+        return json.load(response)
+
 
 
 def read_settings(path):
@@ -163,12 +190,15 @@ def create_app(manager, admin):
         SESSION_COOKIE_NAME="brainrot_admin",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SECURE=True,
-        SESSION_COOKIE_SAMESITE="Strict",
+        SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         MAX_CONTENT_LENGTH=16 * 1024,
     )
-    failures = []
-    login_lock = threading.Lock()
+    admins_lock = threading.Lock()
+
+    def allowed_ids():
+        return read_settings(ADMIN_FILE).get("admin_ids", [])
+
 
     @app.before_request
     def protect():
@@ -182,37 +212,102 @@ def create_app(manager, admin):
             provided = request.form.get("csrf", "")
             if not hmac.compare_digest(session["csrf"].encode(), provided.encode()):
                 abort(400)
-        if request.endpoint != "login" and not session.get("authenticated"):
+        user_id = session.get("discord_id")
+        if user_id and user_id not in allowed_ids():
+            session.clear()
+            user_id = None
+        if request.endpoint not in {"login", "discord_login", "discord_callback"} and not user_id:
             return redirect(url_for("login"))
         return None
 
     @app.after_request
     def response_headers(response):
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
         return response
 
-    @app.route("/login", methods=["GET", "POST"])
+    @app.get("/login")
     def login():
-        if session.get("authenticated"):
+        if session.get("discord_id"):
             return redirect(url_for("reactions"))
-        if request.method == "POST":
-            with login_lock:
-                now = time.monotonic()
-                failures[:] = [stamp for stamp in failures if now - stamp < 60]
-                if len(failures) >= 8:
-                    return render_template("login.html", error="試行回数が多いため、1分後にお試しください。"), 429
-                if not check_password_hash(admin["password_hash"], request.form.get("password", "")):
-                    failures.append(now)
-                    return render_template("login.html", error="パスワードが一致しません。"), 401
-                failures.clear()
-            session.clear()
-            session["csrf"] = secrets.token_urlsafe(32)
-            session["authenticated"] = True
-            session.permanent = True
-            return redirect(url_for("reactions"), code=303)
         return render_template("login.html")
+
+    @app.get("/auth/discord")
+    def discord_login():
+        if session.get("discord_id"):
+            return redirect(url_for("reactions"))
+        state = secrets.token_urlsafe(32)
+        session["oauth_state"] = state
+        session["oauth_started"] = int(time.time())
+        query = urlencode({
+            "client_id": admin["client_id"], "redirect_uri": CALLBACK_URL,
+            "response_type": "code", "scope": "identify", "state": state,
+        })
+        return redirect(f"https://discord.com/oauth2/authorize?{query}")
+
+    @app.get("/auth/discord/callback")
+    def discord_callback():
+        expected = session.pop("oauth_state", "")
+        started = session.pop("oauth_started", 0)
+        received = request.args.get("state", "")
+        if not expected or not hmac.compare_digest(expected.encode(), received.encode()) or not 0 <= time.time() - started < 600:
+            flash("ログインの有効期限が切れました。もう一度お試しください。", "error")
+            return redirect(url_for("login"), code=303)
+        code = request.args.get("code")
+        if not code or request.args.get("error"):
+            flash("Discordでの認証が完了しませんでした。", "error")
+            return redirect(url_for("login"), code=303)
+        try:
+            profile = discord_identity(admin, code)
+            user_id = profile["id"]
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            LOG.warning("Discordログイン失敗: %s", type(error).__name__)
+            flash("Discordへのログインに失敗しました。時間をおいて再試行してください。", "error")
+            return redirect(url_for("login"), code=303)
+        if not isinstance(user_id, str) or not DISCORD_ID.fullmatch(user_id) or user_id not in allowed_ids():
+            return render_template("login.html", error="このDiscordアカウントは管理者に登録されていません。"), 403
+        session.clear()
+        session["discord_id"] = user_id
+        session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
+        session["csrf"] = secrets.token_urlsafe(32)
+        session.permanent = True
+        return redirect(url_for("reactions"), code=303)
+
+    @app.get("/admins")
+    def admins():
+        return render_template("admins.html", admins=allowed_ids(), active="admins")
+
+    @app.post("/admins/<action>")
+    def change_admins(action):
+        if action not in {"add", "remove"}:
+            abort(404)
+        user_id = request.form.get("user_id", "").strip()
+        if not DISCORD_ID.fullmatch(user_id):
+            flash("DiscordのユーザーIDを確認してください。", "error")
+            return redirect(url_for("admins"), code=303)
+        with admins_lock:
+            config = read_settings(ADMIN_FILE)
+            ids = config["admin_ids"]
+            if session["discord_id"] not in ids:
+                session.clear()
+                return redirect(url_for("login"), code=303)
+            if action == "add" and user_id not in ids:
+                ids.append(user_id)
+                write_settings(ADMIN_FILE, config)
+                flash("管理者を追加しました。", "success")
+            elif action == "remove" and user_id == ids[0]:
+                flash("初期管理者はEC2から変更できます。", "error")
+            elif action == "remove" and user_id == session["discord_id"]:
+                flash("ログイン中のアカウントはここから削除できません。", "error")
+            elif action == "remove" and user_id in ids:
+                ids.remove(user_id)
+                write_settings(ADMIN_FILE, config)
+                flash("管理者を削除しました。", "success")
+            else:
+                flash("管理者リストに変更はありません。", "error")
+        return redirect(url_for("admins"), code=303)
 
     @app.post("/logout")
     def logout():
@@ -256,21 +351,27 @@ def create_app(manager, admin):
 
 def main():
     os.umask(0o077)
+    admin = read_settings(ADMIN_FILE)
     if sys.argv[1:] == ["init-admin"]:
-        password = getpass.getpass("管理画面のパスワード（12文字以上）: ")
-        if len(password) < 12 or password != getpass.getpass("管理画面のパスワード（確認）: "):
-            raise SystemExit("パスワードの長さと確認入力を確認してください。")
+        print(f"Discord Developer Portalで登録するRedirect URL: {CALLBACK_URL}")
+        owner_id = input("初期管理者のDiscordユーザーID: ").strip()
+        client_id = input("Discord OAuth2 Client ID: ").strip()
+        client_secret = getpass.getpass("Discord OAuth2 Client Secret: ").strip()
+        if not DISCORD_ID.fullmatch(owner_id) or not DISCORD_ID.fullmatch(client_id) or not client_secret:
+            raise SystemExit("ユーザーID・Client ID・Client Secretを確認してください。")
+        existing = admin.get("admin_ids", [])
         write_settings(ADMIN_FILE, {
-            "password_hash": generate_password_hash(password),
+            "admin_ids": [owner_id, *(entry for entry in existing[1:] if entry != owner_id)],
+            "client_id": client_id,
+            "client_secret": client_secret,
             "session_key": secrets.token_urlsafe(48),
         })
-        print("管理画面のパスワードを設定しました。運用中の場合はサービスを再起動してください。")
+        print("Discordログインを設定しました。運用中の場合はサービスを再起動してください。")
         return
     if sys.argv[1:]:
         raise SystemExit("使い方: python dashboard.py [init-admin]")
-    admin = read_settings(ADMIN_FILE)
-    if not admin:
-        raise SystemExit("先に python dashboard.py init-admin を実行してください。")
+    if not admin.get("admin_ids") or not admin.get("client_id") or not admin.get("client_secret"):
+        raise SystemExit("先に python dashboard.py init-admin でDiscordログインを設定してください。")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     manager = BotManager()
     threading.Thread(target=manager.run, name="discord", daemon=True).start()
