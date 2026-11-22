@@ -110,7 +110,7 @@ td a { white-space: nowrap; }
   font-family: Impact, Haettenschweiler, "Arial Black", system-ui, sans-serif;
   font-weight: 950;
   letter-spacing: 0.035em;
-  color: #fff3fc;
+  color: #e8cceb;
   filter: drop-shadow(0 3px 0 #24122c);
 }
 
@@ -120,11 +120,11 @@ td a { white-space: nowrap; }
 .login-game-title span { font-size: clamp(16px, 2.7vw, 25px); }
 
 .login-game-title strong {
-  color: #d8ff42;
+  color: #f5a9cf;
   font-size: clamp(32px, 5.4vw, 49px);
   line-height: 0.98;
   letter-spacing: -0.025em;
-  text-shadow: 2px 4px 0 #5b1b72, 3px 5px 0 #ee56bf;
+  text-shadow: 2px 3px 0 #3a1949, 3px 5px 0 #642659;
 }
 
 @keyframes login-accent-in {
@@ -143,6 +143,7 @@ td a { white-space: nowrap; }
 
 .login-content h1 {
   margin: 0;
+  color: #352941;
   font-size: clamp(26px, 4vw, 38px);
   line-height: 1.12;
 }
