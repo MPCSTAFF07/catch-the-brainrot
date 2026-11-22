@@ -61,7 +61,7 @@ td a { white-space: nowrap; }
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
   min-height: 100svh;
-  background: linear-gradient(125deg, #f3f4ff 0%, #e7edff 100%);
+  background: linear-gradient(125deg, #f7f4ff 0%, #eee5ff 100%);
 }
 
 .signed-out main {
@@ -81,31 +81,56 @@ td a { white-space: nowrap; }
 
 .login-accent {
   position: relative;
+  display: grid;
+  align-items: start;
+  justify-items: center;
   overflow: hidden;
-  background: linear-gradient(145deg, #4658cf, #697df0);
-  border-radius: 0 120px 120px 0;
+  isolation: isolate;
+  padding: 34px 28px 24px 16px;
+  background: #2a1240;
+  border-radius: 0 110px 110px 0;
   animation: login-accent-in 440ms ease-out both;
+}
+
+.login-accent::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(28 9 44 / 80%) 0%, transparent 52%),
+    url("brainrot-login.webp") center 65% / cover no-repeat;
+  content: "";
+}
+
+.login-game-title {
+  margin: 0;
+  transform: rotate(-5deg);
+  text-align: center;
+  text-transform: uppercase;
+  font-family: Impact, Haettenschweiler, "Arial Black", system-ui, sans-serif;
+  font-weight: 950;
+  letter-spacing: 0.035em;
+  color: #fff3fc;
+  filter: drop-shadow(0 3px 0 #24122c);
+}
+
+.login-game-title span,
+.login-game-title strong { display: block; }
+
+.login-game-title span { font-size: clamp(16px, 2.7vw, 25px); }
+
+.login-game-title strong {
+  color: #d8ff42;
+  font-size: clamp(32px, 5.4vw, 49px);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  text-shadow: 2px 4px 0 #5b1b72, 3px 5px 0 #ee56bf;
 }
 
 @keyframes login-accent-in {
   from { transform: translateX(-7%); opacity: 0.75; }
   to { transform: translateX(0); opacity: 1; }
 }
-
-.login-accent::before,
-.login-accent::after {
-  position: absolute;
-  top: 50%;
-  left: 35%;
-  width: 84%;
-  aspect-ratio: 1;
-  border: 1px solid rgb(255 255 255 / 24%);
-  border-radius: 50%;
-  transform: translate(-52%, -50%);
-  content: "";
-}
-
-.login-accent::after { width: 114%; }
 
 .login-content {
   align-self: center;
@@ -131,21 +156,30 @@ td a { white-space: nowrap; }
   min-height: 46px;
   padding: 10px 18px;
   border-radius: 8px;
-  background: #4859d3;
+  background: #47205d;
   color: #fff;
   font-weight: 700;
   text-decoration: none;
 }
 
-.login-action:hover { background: #3b49b8; }
-.login-action:focus-visible { outline: 2px solid #25398e; outline-offset: 4px; }
+.login-action:hover { background: #652585; }
+.login-action:focus-visible { outline: 2px solid #642585; outline-offset: 4px; }
 
 @media (max-width: 580px) {
   .signed-out main { max-width: 440px; padding: 16px; }
   .login-card { grid-template-columns: minmax(0, 1fr); min-height: auto; }
-  .login-accent { min-height: 105px; border-radius: 0 0 80px 0; }
-  .login-accent::before, .login-accent::after { max-width: 210px; }
-  .login-accent::after { max-width: 276px; }
+  .login-accent {
+    align-items: center;
+    justify-items: start;
+    min-height: 208px;
+    padding: 24px 16px;
+    border-radius: 0 0 70px 0;
+  }
+  .login-accent::before {
+    background:
+      linear-gradient(90deg, #291438 0%, rgb(35 14 48 / 76%) 30%, transparent 67%),
+      url("brainrot-login.webp") right -12px center / auto 148% no-repeat;
+  }
   .login-content { padding: 36px 22px 42px; }
 }
 
