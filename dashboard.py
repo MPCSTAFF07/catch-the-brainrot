@@ -38,6 +38,7 @@ LOG = logging.getLogger("dashboard")
 CALLBACK_URL = f"{SITE_ORIGIN}/auth/discord/callback"
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_ID = re.compile(r"[1-9][0-9]{16,19}")
+DISCORD_INVITE = re.compile(r"https://(?:discord\.gg/|discord\.com/invite/)([A-Za-z0-9_-]{1,100})/?")
 
 DISCORD_USER_AGENT = "DiscordBot (https://github.com/MPCSTAFF07/catch-the-brainrot, 1.0)"
 OAUTH_ERRORS = {"invalid_client", "invalid_grant", "invalid_request", "invalid_scope",
@@ -292,7 +293,26 @@ class BotManager:
             reason="交換完了のため当事者アクセスを解除",
         )
 
+    async def server_membership(self, user_id):
+        bot = self.bot
+        guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+        invite_url = self.settings.get("invite_url", "")
+        if guild is None or guild.unavailable:
+            return {"status": "unavailable", "invite_url": invite_url}
+        invite_url = invite_url or guild.vanity_url or ""
+        try:
+            await asyncio.wait_for(guild.fetch_member(int(user_id)), timeout=5)
+        except discord.NotFound as error:
+            status = "not_joined" if error.code == 10007 else "unavailable"
+        except (discord.HTTPException, OSError):
+            status = "unavailable"
+        else:
+            status = "joined"
+        return {"status": status, "invite_url": invite_url, "guild_name": guild.name}
+
     async def execute(self, action, form):
+        if action == "server_membership":
+            return await self.server_membership(form["user_id"])
         if action in {"trade_channel", "archive_trade_channel"}:
             operation = self.create_trade_channel if action == "trade_channel" else self.archive_trade_channel
             try:
@@ -336,8 +356,11 @@ class BotManager:
                 token = form.get("token", "").strip() or self.settings.get("token")
                 if not re.fullmatch(r"[0-9]{17,20}", guild_id) or not token:
                     raise ValueError("BotトークンとDiscordサーバーIDを入力してください。")
+                updated = {"guild_id": guild_id, "token": token}
+                if guild_id == self.settings.get("guild_id") and self.settings.get("invite_url"):
+                    updated["invite_url"] = self.settings["invite_url"]
                 try:
-                    await asyncio.wait_for(self.replace({"guild_id": guild_id, "token": token}, save=True), timeout=25)
+                    await asyncio.wait_for(self.replace(updated, save=True), timeout=25)
                 except discord.LoginFailure as error:
                     raise ValueError("DiscordがBotトークンを認証できませんでした。") from error
                 except discord.Forbidden as error:
@@ -345,6 +368,29 @@ class BotManager:
 
             bot = self.bot
             guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+            if action == "server_invite_save":
+                raw = form.get("invite_url", "").strip()
+                updated = dict(self.settings)
+                if raw:
+                    match = DISCORD_INVITE.fullmatch(raw)
+                    if match is None:
+                        raise ValueError("Discordの招待リンクを入力してください。")
+                    if guild is None or guild.unavailable:
+                        raise ValueError("BotをDiscordサーバーに接続してから招待リンクを保存してください。")
+                    code = match[1]
+                    try:
+                        invite = await asyncio.wait_for(bot.fetch_invite(code), timeout=5)
+                    except discord.NotFound as error:
+                        raise ValueError("招待リンクが無効か期限切れです。Discordで招待リンクを確認してください。") from error
+                    if not invite.guild or invite.guild.id != guild.id:
+                        raise ValueError("Botを設定したDiscordサーバーの招待リンクを使ってください。")
+                    updated["invite_url"] = f"https://discord.gg/{code}"
+                else:
+                    updated.pop("invite_url", None)
+                if updated != self.settings:
+                    write_settings(BOT_FILE, updated)
+                    self.settings = updated
+                return
             if action == "trade_announcements_save":
                 if "channel_id" not in form:
                     raise ValueError("募集パネルの配信先を選んでください。")
@@ -409,6 +455,7 @@ class BotManager:
                 "connected": guild is not None,
                 "configured": bool(self.settings),
                 "guild_id": self.settings.get("guild_id", ""),
+                "invite_url": self.settings.get("invite_url", ""),
                 "bot_name": str(bot.user) if guild is not None else "",
                 "roles": roles,
                 "emojis": [
@@ -575,9 +622,23 @@ def create_app(manager, admin):
             avatar=profile.get("avatar"), banner=profile.get("banner"),
             discriminator=profile.get("discriminator"),
         )
-        if offer_id is not None:
-            return redirect(url_for("trade.offer", offer_id=offer_id), code=303)
-        return redirect(url_for("trade.index"), code=303)
+        return redirect(url_for("join_server", offer=offer_id), code=303)
+
+    @app.get("/join-server")
+    def join_server():
+        offer_id = request.args.get("offer", type=int)
+        destination = url_for("trade.index")
+        if offer_id is not None and 1 <= offer_id <= 2**63 - 1:
+            destination = url_for("trade.offer", offer_id=offer_id)
+        else:
+            offer_id = None
+        try:
+            membership = manager.call("server_membership", {"user_id": session["discord_id"]})
+        except ValueError:
+            membership = {"status": "unavailable", "invite_url": ""}
+        if membership["status"] == "joined":
+            return redirect(destination, code=303)
+        return render_template("join_server.html", membership=membership, destination=destination, offer_id=offer_id)
 
     @app.get("/admins")
     @admin_required
@@ -679,7 +740,10 @@ def create_app(manager, admin):
     @admin_required
     def settings():
         if request.method == "POST":
-            submit("save", "Bot設定を保存しました。Discordへの接続状態を更新します。")
+            if request.form.get("settings_action") == "invite":
+                submit("server_invite_save", "サーバー招待リンクの設定を保存しました。")
+            else:
+                submit("save", "Bot設定を保存しました。Discordへの接続状態を更新します。")
             return redirect(url_for("settings"), code=303)
         return render_template("settings.html", state=manager.call("status", {}), active="settings")
 

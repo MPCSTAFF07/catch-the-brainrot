@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Discordサーバーへ参加{% endblock %}
+{% block content %}
+  <section class="panel">
+    <h1>Discordサーバーへ参加</h1>
+    {% if membership.status == 'not_joined' %}
+      <p>{{ membership.guild_name }} に参加すると、成立した交換のやり取りができます。</p>
+    {% else %}
+      <p>Discordサーバーへの参加状況を確認できませんでした。「参加を確認」からもう一度お試しください。</p>
+    {% endif %}
+    {% if membership.invite_url %}
+      <p><a class="login-action" href="{{ membership.invite_url }}" target="_blank" rel="noopener noreferrer">Discordサーバーに参加する ↗</a></p>
+    {% elif membership.status == 'not_joined' %}
+      <p>現在、招待リンクを利用できません。サーバーの運営へお問い合わせください。</p>
+    {% endif %}
+    {% if g.is_admin and not membership.invite_url %}
+      <p><a href="{{ url_for('settings') }}">Bot設定で招待リンクを設定する</a></p>
+    {% endif %}
+    <p><a href="{{ url_for('join_server', offer=offer_id) }}">参加を確認</a></p>
+    <p><a href="{{ destination }}">あとで参加してサイトへ進む</a></p>
+  </section>
+{% endblock %}

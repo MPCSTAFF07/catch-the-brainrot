@@ -1,5 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Bot設定{% endblock %}
+{% block title %}Bot設定  <form method="post" class="panel form">
+    <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+    <input type="hidden" name="settings_action" value="invite">
+    <label>サーバー招待リンク
+      <input name="invite_url" type="url" value="{{ state.invite_url }}" placeholder="https://discord.gg/..." maxlength="150">
+    </label>
+    <p class="hint">未参加の人に案内するリンクです。Discordで期限を「無期限」にした招待リンクを作って設定してください。空欄の場合は、サーバーにカスタム招待URLがあれば使用します。</p>
+    <button type="submit">招待リンクを保存</button>
+  </form>
+{% endblock %}
 {% block content %}
   <h1>Bot設定</h1>
   <p class="status">
@@ -18,5 +27,14 @@
     </label>
     {% if state.configured %}<p class="hint">空欄で保存すると現在のトークンを使用します。</p>{% endif %}
     <button type="submit">保存して接続</button>
+  </form>
+  <form method="post" class="panel form">
+    <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+    <input type="hidden" name="settings_action" value="invite">
+    <label>サーバー招待リンク
+      <input name="invite_url" type="url" value="{{ state.invite_url }}" placeholder="https://discord.gg/..." maxlength="150">
+    </label>
+    <p class="hint">未参加の人に案内するリンクです。Discordで期限を「無期限」にした招待リンクを作って設定してください。空欄の場合は、サーバーにカスタム招待URLがあれば使用します。</p>
+    <button type="submit">招待リンクを保存</button>
   </form>
 {% endblock %}
