@@ -69,7 +69,7 @@
 
     <section class="trade-compose profile-panel">
       <h2>交換実績</h2>
-      <ul class="profile-results">
+      <ul class="profile-offer-grid profile-results">
       {% for exchange in recent %}
         <li><span>{{ exchange.given }}</span><span aria-label="と交換">⇄</span><span>{{ exchange.received }}</span></li>
       {% else %}

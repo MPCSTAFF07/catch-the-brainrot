@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='site-notifications-1') }}">
-  {% if active in ("trade", "trade_inbox", "trade_profile", "trade_notifications") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='offer-delete-1') }}">{% endif %}
+  {% if active in ("trade", "trade_inbox", "trade_profile", "trade_notifications") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='profile-results-3') }}">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='motion.css', v='menu-slide-2') }}">
   {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js', v='menu-slide-2') }}" defer></script>{% endif %}
   {% if active == 'reactions' %}

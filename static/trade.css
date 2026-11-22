@@ -257,15 +257,15 @@
 .profile-wishes li { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; background: #493755; }
 .profile-wishes li > span { overflow-wrap: anywhere; }
 .trade-page main .profile-wishes button[type="submit"] { padding: 0; min-width: 32px; min-height: 32px; clip-path: none; background: transparent; color: var(--trade-pink); }
-.profile-results { display: grid; gap: 8px; }
 .profile-results li {
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 11px 12px;
   background: #392c46;
-  border-left: 2px solid var(--trade-accent);
+  border-top: 2px solid var(--trade-accent);
   overflow-wrap: anywhere;
 }
 .profile-results li > span:nth-child(2) { color: var(--trade-accent); text-align: center; }
@@ -304,6 +304,13 @@
 @media (max-width: 650px) {
   .profile-offer-grid { gap: 5px; }
   .profile-offer { padding: 6px; font-size: 12px; }
+  .profile-results li:not(.profile-empty) {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: 3px;
+    padding: 6px;
+    font-size: 12px;
+  }
 }
 
 .offer-detail-layout {
