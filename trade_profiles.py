@@ -5,7 +5,7 @@ import sqlite3
 from flask import abort, flash, redirect, render_template, request, session, url_for
 
 USER_ID = re.compile(r"[1-9][0-9]{16,19}")
-AVATAR_HASH = re.compile(r"(?:a_)?[0-9a-f]{32}")
+IMAGE_HASH = re.compile(r"(?:a_)?[0-9a-f]{32}")
 WISH_LIMIT = 30
 
 
@@ -18,13 +18,20 @@ def save_profile(db, user_id, name):
     )
 
 
-def remember_profile(db_path, user_id, name, avatar=None):
-    avatar = avatar if isinstance(avatar, str) and AVATAR_HASH.fullmatch(avatar) else None
+def remember_profile(db_path, user_id, name, avatar=None, banner=None, discriminator=None):
+    avatar = avatar if isinstance(avatar, str) and IMAGE_HASH.fullmatch(avatar) else None
+    banner = banner if isinstance(banner, str) and IMAGE_HASH.fullmatch(banner) else None
+    default_index = (int(user_id) >> 22) % 6
+    if isinstance(discriminator, str) and re.fullmatch(r"[0-9]{4}", discriminator) and discriminator != "0000":
+        default_index = int(discriminator) % 5
+
     with closing(sqlite3.connect(db_path, timeout=8)) as db, db:
         save_profile(db, user_id, name)
         db.execute(
-            "UPDATE trade_profiles SET avatar_hash=? WHERE user_id=? AND avatar_hash IS NOT ?",
-            (avatar, user_id, avatar),
+            """UPDATE trade_profiles
+               SET avatar_hash=?, banner_hash=?, default_avatar_index=?
+               WHERE user_id=?""",
+            (avatar, banner, default_index, user_id),
         )
 
 
@@ -32,11 +39,17 @@ def register_profiles(board, database):
     with database(write=True) as db:
         db.execute("""
             CREATE TABLE IF NOT EXISTS trade_profiles (
-                user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL, avatar_hash TEXT
+                user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL,
+                avatar_hash TEXT, banner_hash TEXT, default_avatar_index INTEGER
             )
         """)
-        if not any(row["name"] == "avatar_hash" for row in db.execute("PRAGMA table_info(trade_profiles)")):
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(trade_profiles)")}
+        if "avatar_hash" not in columns:
             db.execute("ALTER TABLE trade_profiles ADD COLUMN avatar_hash TEXT")
+        if "banner_hash" not in columns:
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN banner_hash TEXT")
+        if "default_avatar_index" not in columns:
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN default_avatar_index INTEGER")
         db.execute("""
             INSERT OR IGNORE INTO trade_profiles(user_id, display_name)
             SELECT owner_id, owner_name FROM trade_offers ORDER BY id DESC
@@ -94,7 +107,7 @@ def register_profiles(board, database):
         own = user_id == me
         with database() as db:
             user = db.execute(
-                "SELECT display_name, avatar_hash FROM trade_profiles WHERE user_id=?", (user_id,)
+                "SELECT display_name, avatar_hash, banner_hash, default_avatar_index FROM trade_profiles WHERE user_id=?", (user_id,)
             ).fetchone()
             if user is None:
                 abort(404)
@@ -129,9 +142,13 @@ def register_profiles(board, database):
                 """SELECT o.id, o.offered, o.wanted FROM trade_likes l JOIN trade_offers o ON o.id=l.offer_id
                    WHERE l.user_id=? ORDER BY l.rowid DESC LIMIT 12""", (me,),
             ).fetchall() if own else []
+        default_index = user["default_avatar_index"]
+        if default_index is None:
+            default_index = (int(user_id) >> 22) % 6
         return render_template(
             "trade_profile.html", uid=user_id, name=user["display_name"], own=own, stats=stats,
-            avatar_hash=user["avatar_hash"], wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
+            avatar_hash=user["avatar_hash"], banner_hash=user["banner_hash"], default_avatar_index=default_index,
+            wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
         )
 
     @board.get("/profile/<user_id>/connections")

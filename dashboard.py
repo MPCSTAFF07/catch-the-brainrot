@@ -352,7 +352,11 @@ def create_app(manager, admin):
         session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
         session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
-        remember_profile(TRADE_DB, user_id, session["discord_name"], profile.get("avatar"))
+        remember_profile(
+            TRADE_DB, user_id, session["discord_name"],
+            avatar=profile.get("avatar"), banner=profile.get("banner"),
+            discriminator=profile.get("discriminator"),
+        )
         return redirect(url_for("trade.index"), code=303)
 
     @app.get("/admins")
