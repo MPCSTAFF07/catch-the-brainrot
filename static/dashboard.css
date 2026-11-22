@@ -8,16 +8,12 @@
   --paper: #fff;
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
-.sidebar { background: var(--paper); border-right: 1px solid var(--border); min-height: 100vh; display: flex; flex-direction: column; padding: 24px 16px; gap: 32px; }
-.brand { padding: 0 10px; display: grid; gap: 5px; font-weight: 750; text-decoration: none; }
-.brand small, .hint, .status, .eyebrow { color: var(--muted); }
-.brand small { font-weight: 500; }
+body { margin: 0; min-height: 100vh; }
+.hint, .status, .eyebrow { color: var(--muted); }
 nav { display: grid; gap: 5px; }
 nav a { padding: 11px 10px; text-decoration: none; border-radius: 4px; font-size: 14px; }
 nav a:hover, nav a[aria-current] { background: #efefed; }
 nav a[aria-current] { font-weight: 750; }
-.logout { margin-top: auto; }
 a { color: inherit; text-underline-offset: 3px; }
 main { padding: 40px 32px; max-width: 920px; width: 100%; }
 h1 { margin: 0 0 24px; font-size: clamp(24px, 4vw, 32px); letter-spacing: -.03em; }
@@ -45,16 +41,11 @@ th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 th:first-child, td:first-child { padding-left: 0; }
 td a { white-space: nowrap; }
 @media (max-width: 650px) {
-  body { display: block; }
-  .sidebar { min-height: auto; padding: 14px; border-right: 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: 1fr auto; gap: 12px; }
-  .brand { padding: 0; }
   nav { display: flex; flex-wrap: wrap; grid-column: 1 / -1; grid-row: 2; }
-  .logout { margin: 0; }
   main { padding: 24px 16px; }
   .panel { padding: 16px; }
   .fields { grid-template-columns: 1fr; }
 }
-.logout .hint { overflow-wrap: anywhere; }
 
 .signed-out {
   display: grid;
@@ -179,6 +170,76 @@ td a { white-space: nowrap; }
 }
 
 .nav-group { margin: 12px 10px 2px; color: var(--muted); font-size: 12px; font-weight: 700; }
+
+.signed-in main { margin-inline: auto; }
+
+.site-header {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  max-width: 1290px;
+  margin-inline: auto;
+  padding: 10px 22px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-header .brand {
+  justify-self: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  font-size: 17px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.02;
+  text-decoration: none;
+}
+
+.site-menu { position: relative; }
+.site-menu summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  list-style: none;
+  cursor: pointer;
+}
+.site-menu summary::-webkit-details-marker { display: none; }
+.site-menu summary:hover, .site-menu[open] summary { background: #efefed; }
+.site-menu summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.menu-icon { position: relative; display: block; width: 20px; height: 18px; }
+.menu-icon i { position: absolute; inset: 0 0 auto; height: 2px; background: currentColor; }
+.menu-icon i:nth-child(1) { top: 2px; }
+.menu-icon i:nth-child(2) { top: 8px; }
+.menu-icon i:nth-child(3) { top: 14px; }
+.site-menu[open] .menu-icon i:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.site-menu[open] .menu-icon i:nth-child(2) { opacity: 0; }
+.site-menu[open] .menu-icon i:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+.site-nav {
+  position: absolute;
+  inset: calc(100% + 9px) 0 auto auto;
+  display: grid;
+  width: min(280px, calc(100vw - 28px));
+  max-height: calc(100dvh - 86px);
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 15%);
+}
+.site-menu:not([open]) .site-nav { display: none; }
+
 @media (max-width: 650px) {
-  .nav-group { align-self: center; margin: 0 6px; }
+  .site-header-inner { padding: 9px 14px; gap: 8px; }
+  .site-header .logout button { padding-inline: 10px; white-space: nowrap; }
 }

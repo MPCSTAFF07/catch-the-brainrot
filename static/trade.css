@@ -11,11 +11,13 @@
   --trade-cut: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 .trade-page main { max-width: 1290px; }
-.trade-page .sidebar { background: #211d28; border-color: var(--trade-border); }
-.trade-page .brand { color: var(--trade-accent); text-transform: uppercase; font: 900 italic 20px/1.03 "Arial Black", system-ui, sans-serif; text-shadow: 2px 2px #5c3b62; }
-.trade-page .sidebar nav a { border-radius: 0; border-left: 3px solid transparent; }
-.trade-page .sidebar nav a:hover, .trade-page .sidebar nav a[aria-current] { background: #393241; }
-.trade-page .sidebar nav a[aria-current] { border-color: var(--trade-accent); color: var(--trade-accent); }
+.trade-page .site-header, .trade-page .site-nav { background: #211d28; border-color: var(--trade-border); }
+.trade-page .site-menu summary { border-color: var(--trade-border); }
+.trade-page .site-menu summary:hover, .trade-page .site-menu[open] summary { background: #393241; }
+.trade-page .site-header .brand { color: var(--trade-accent); font: italic 900 17px/1.02 "Arial Black", system-ui, sans-serif; text-shadow: 2px 2px #5c3b62; }
+.trade-page .site-nav a { border-radius: 0; border-left: 3px solid transparent; }
+.trade-page .site-nav a:hover, .trade-page .site-nav a[aria-current] { background: #393241; }
+.trade-page .site-nav a[aria-current] { border-color: var(--trade-accent); color: var(--trade-accent); }
 .trade-page .nav-group, .trade-page .hint { color: var(--trade-muted); }
 .trade-page .logout button { background: transparent; border-color: var(--trade-border); color: #e9e1f0; border-radius: 0; }
 .trade-hero {
