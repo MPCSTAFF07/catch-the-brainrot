@@ -227,10 +227,13 @@ td a { white-space: nowrap; }
   position: absolute;
   inset: calc(100% + 1px) 0 auto;
   display: block;
+  overflow: hidden;
+}
+
+.site-nav-sheet {
   max-height: calc(100dvh - 84px);
   overflow: auto;
   background: var(--paper);
-  box-shadow: 0 12px 26px rgb(0 0 0 / 22%);
 }
 
 .site-nav-inner {

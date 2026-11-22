@@ -11,7 +11,7 @@
   --trade-cut: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 .trade-page main { max-width: 1290px; }
-.trade-page .site-header, .trade-page .site-nav { background: #211d28; border-color: var(--trade-border); }
+.trade-page .site-header, .trade-page .site-nav-sheet { background: #211d28; border-color: var(--trade-border); }
 .trade-page .site-menu summary { border-color: var(--trade-border); }
 .trade-page .site-menu summary:hover, .trade-page .site-menu[open] summary { background: #393241; }
 .trade-page .site-header .brand { color: var(--trade-accent); font: italic 900 17px/1.02 "Arial Black", system-ui, sans-serif; text-shadow: 2px 2px #5c3b62; }

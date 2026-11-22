@@ -3,16 +3,8 @@
     --entry-ease: cubic-bezier(0.22, 0.8, 0.36, 1);
   }
 
-  .site-menu[open]:not([data-animated]) .site-nav {
+  .site-menu[open]:not([data-animated]) .site-nav-sheet {
     animation: menu-enter 470ms var(--entry-ease) backwards;
-  }
-
-  .site-menu[open]:not([data-animated]) .site-nav-column {
-    animation: menu-links-enter 250ms var(--entry-ease) 45ms backwards;
-  }
-
-  .site-menu[open]:not([data-animated]) .site-nav-column:nth-child(2) {
-    animation-delay: 85ms;
   }
 
   .menu-icon i {
@@ -74,14 +66,8 @@
 }
 
 @keyframes menu-enter {
-  from { clip-path: inset(14px 0 100% 0); transform: translateY(-14px); }
-  72% { clip-path: inset(0); transform: translateY(3px); }
-  to { clip-path: inset(0); transform: translateY(0); }
-}
-
-@keyframes menu-links-enter {
-  from { opacity: 0; transform: translateY(-7px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
 }
 
 @keyframes main-enter {

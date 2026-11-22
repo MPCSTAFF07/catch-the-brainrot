@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
-  {% if active in ("trade", "trade_inbox") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css') }}">{% endif %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='motion.css') }}">
-  {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js') }}" defer></script>{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='menu-slide-2') }}">
+  {% if active in ("trade", "trade_inbox") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='menu-slide-2') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='motion.css', v='menu-slide-2') }}">
+  {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js', v='menu-slide-2') }}" defer></script>{% endif %}
 </head>
 <body class="{% if session.get('discord_id') %}signed-in{% if active in ('trade', 'trade_inbox') %} trade-page{% endif %}{% else %}signed-out{% endif %}">
 {% if session.get('discord_id') %}
@@ -25,20 +25,22 @@
           <span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span>
         </summary>
         <nav class="site-nav" aria-label="サイトメニュー">
-          <div class="site-nav-inner">
-            <div class="site-nav-column">
-              <p class="nav-group">交換</p>
-              <a href="{{ url_for('trade.index') }}" {% if active == 'trade' %}aria-current="page"{% endif %}>交換を探す</a>
-              <a href="{{ url_for('trade.inbox') }}" {% if active == 'trade_inbox' %}aria-current="page"{% endif %}>取引・メッセージ</a>
+          <div class="site-nav-sheet">
+            <div class="site-nav-inner">
+              <div class="site-nav-column">
+                <p class="nav-group">交換</p>
+                <a href="{{ url_for('trade.index') }}" {% if active == 'trade' %}aria-current="page"{% endif %}>交換を探す</a>
+                <a href="{{ url_for('trade.inbox') }}" {% if active == 'trade_inbox' %}aria-current="page"{% endif %}>取引・メッセージ</a>
+              </div>
+              {% if g.is_admin %}
+              <div class="site-nav-column">
+                <p class="nav-group">管理</p>
+                <a href="{{ url_for('reactions') }}" {% if active == 'reactions' %}aria-current="page"{% endif %}>リアクションロール</a>
+                <a href="{{ url_for('settings') }}" {% if active == 'settings' %}aria-current="page"{% endif %}>Bot設定</a>
+                <a href="{{ url_for('admins') }}" {% if active == 'admins' %}aria-current="page"{% endif %}>管理者</a>
+              </div>
+              {% endif %}
             </div>
-            {% if g.is_admin %}
-            <div class="site-nav-column">
-              <p class="nav-group">管理</p>
-              <a href="{{ url_for('reactions') }}" {% if active == 'reactions' %}aria-current="page"{% endif %}>リアクションロール</a>
-              <a href="{{ url_for('settings') }}" {% if active == 'settings' %}aria-current="page"{% endif %}>Bot設定</a>
-              <a href="{{ url_for('admins') }}" {% if active == 'admins' %}aria-current="page"{% endif %}>管理者</a>
-            </div>
-            {% endif %}
           </div>
         </nav>
       </details>
