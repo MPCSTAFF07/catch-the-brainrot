@@ -89,7 +89,6 @@ td a { white-space: nowrap; }
   padding: 34px 28px 24px 16px;
   background: #2a1240;
   border-radius: 0 110px 110px 0;
-  animation: login-accent-in 440ms ease-out both;
 }
 
 .login-accent::before {
@@ -125,11 +124,6 @@ td a { white-space: nowrap; }
   line-height: 0.98;
   letter-spacing: -0.025em;
   text-shadow: 2px 3px 0 #3a1949, 3px 5px 0 #642659;
-}
-
-@keyframes login-accent-in {
-  from { transform: translateX(-7%); opacity: 0.75; }
-  to { transform: translateX(0); opacity: 1; }
 }
 
 .login-content {
@@ -182,10 +176,6 @@ td a { white-space: nowrap; }
       url("brainrot-login.webp") right -12px center / auto 148% no-repeat;
   }
   .login-content { padding: 36px 22px 42px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-accent { animation: none; }
 }
 
 .nav-group { margin: 12px 10px 2px; color: var(--muted); font-size: 12px; font-weight: 700; }

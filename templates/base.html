@@ -6,6 +6,7 @@
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   {% if active in ("trade", "trade_inbox") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='motion.css') }}">
 </head>
 <body class="{% if not session.get('discord_id') %}signed-out{% elif active in ('trade', 'trade_inbox') %}trade-page{% endif %}">
 {% if session.get('discord_id') %}

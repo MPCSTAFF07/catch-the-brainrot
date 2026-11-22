@@ -1,0 +1,95 @@
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    --entry-ease: cubic-bezier(0.22, 0.8, 0.36, 1);
+  }
+
+  .sidebar {
+    animation: sidebar-enter 370ms var(--entry-ease) both;
+  }
+
+  .sidebar nav a {
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+
+  body:not(.signed-out) main {
+    animation: main-enter 330ms var(--entry-ease) both;
+  }
+
+  .login-card {
+    animation: login-card-enter 420ms var(--entry-ease) both;
+  }
+
+  .login-accent {
+    animation: login-art-enter 510ms var(--entry-ease) 35ms both;
+  }
+
+  .login-content {
+    animation: main-enter 340ms var(--entry-ease) 85ms both;
+  }
+
+  .offer {
+    transition: translate 160ms var(--entry-ease);
+  }
+
+  .offer:nth-child(-n + 8) {
+    animation: offer-enter 290ms var(--entry-ease) calc(25ms * var(--offer-order, 0)) backwards;
+  }
+
+  .offer:nth-child(2) { --offer-order: 1; }
+  .offer:nth-child(3) { --offer-order: 2; }
+  .offer:nth-child(4) { --offer-order: 3; }
+  .offer:nth-child(5) { --offer-order: 4; }
+  .offer:nth-child(6) { --offer-order: 5; }
+  .offer:nth-child(7) { --offer-order: 6; }
+  .offer:nth-child(8) { --offer-order: 7; }
+
+  .offer-link {
+    transition: background-color 160ms ease;
+  }
+
+  .login-action, .trade-post, .trade-page main button[type="submit"] {
+    transition: background-color 150ms ease, filter 150ms ease, scale 150ms var(--entry-ease);
+  }
+
+  .login-action:active, .trade-post:active, .trade-page main button[type="submit"]:active {
+    scale: 0.98;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .offer:hover { translate: 0 -3px; }
+  }
+
+  @media (max-width: 650px) {
+    .sidebar { animation-name: mobile-menu-enter; }
+  }
+}
+
+@keyframes sidebar-enter {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes mobile-menu-enter {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes main-enter {
+  from { opacity: 0.62; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes login-card-enter {
+  from { opacity: 0.55; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes login-art-enter {
+  from { opacity: 0.72; transform: translateX(-8%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes offer-enter {
+  from { opacity: 0.5; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
