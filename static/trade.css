@@ -18,7 +18,8 @@
 .trade-page .site-nav a { border-radius: 0; border-left: 3px solid transparent; }
 .trade-page .site-nav a:hover, .trade-page .site-nav a[aria-current] { background: #393241; }
 .trade-page .site-nav a[aria-current] { border-color: var(--trade-accent); color: var(--trade-accent); }
-.trade-page .nav-group, .trade-page .hint { color: var(--trade-muted); }
+.trade-page .site-nav .nav-group { color: var(--trade-accent); }
+.trade-page .hint { color: var(--trade-muted); }
 .trade-page .logout button { background: transparent; border-color: var(--trade-border); color: #e9e1f0; border-radius: 0; }
 .trade-hero {
   display: flex;
