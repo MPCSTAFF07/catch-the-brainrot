@@ -79,9 +79,22 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             )
         """)
         db.execute("CREATE INDEX IF NOT EXISTS trade_messages_by_deal ON trade_messages(deal_id, id)")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS trade_deleted_id_floor (
+                kind TEXT PRIMARY KEY,
+                id INTEGER NOT NULL
+            )
+        """)
 
     def text_arg(data, key, limit):
         return data.get(key, "").strip()[:limit]
+
+    def next_id(db, table):
+        return db.execute(
+            f"""SELECT MAX(COALESCE((SELECT MAX(id) FROM {table}), 0),
+                           COALESCE((SELECT id FROM trade_deleted_id_floor WHERE kind=?), 0)) + 1""",
+            (table,),
+        ).fetchone()[0]
 
     def offer_by_id(db, offer_id):
         row = db.execute(
@@ -176,9 +189,9 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             save_profile(db, session["discord_id"], session["discord_name"])
             result = db.execute(
                 """INSERT INTO trade_offers
-                   (owner_id, owner_name, offered, wanted, note, category, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
-                (session["discord_id"], session["discord_name"], offered, wanted, note, category),
+                   (id, owner_id, owner_name, offered, wanted, note, category, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                (next_id(db, "trade_offers"), session["discord_id"], session["discord_name"], offered, wanted, note, category),
             )
             if photo:
                 db.execute("INSERT INTO trade_offer_photos VALUES (?, ?, ?)", (result.lastrowid, *photo))
@@ -242,6 +255,51 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
         flash("交換募集を締め切りました。", "success")
         return redirect(url_for("trade.index", mine=1), code=303)
 
+    @board.route("/trade/<int:offer_id>/delete", methods=["GET", "POST"])
+    def delete_offer(offer_id):
+        deleting = request.method == "POST"
+        with database(write=deleting) as db:
+            item = offer_by_id(db, offer_id)
+            if item["owner_id"] != session["discord_id"]:
+                abort(404)
+            if not deleting:
+                return render_template("trade_offer_delete.html", item=item, active="trade")
+            if request.form.get("confirm") != "delete":
+                abort(400)
+            if provisioning_for_offer(db, offer_id):
+                flash("Discordの取引チャットを処理中です。少し待ってから削除してください。", "error")
+                return redirect(url_for("trade.delete_offer", offer_id=offer_id), code=303)
+
+            # 以前の募集・取引のURLやDiscordの取引番号を再利用しない。
+            latest_deal = db.execute("SELECT MAX(id) FROM trade_deals WHERE offer_id=?", (offer_id,)).fetchone()[0]
+            reservations = [("trade_offers", offer_id)]
+            if latest_deal is not None:
+                reservations.append(("trade_deals", latest_deal))
+            db.executemany(
+                """INSERT INTO trade_deleted_id_floor(kind, id) VALUES (?, ?)
+                   ON CONFLICT(kind) DO UPDATE SET id=MAX(id, excluded.id)""",
+                reservations,
+            )
+            db.execute(
+                """DELETE FROM trade_notifications
+                   WHERE (kind='wish' AND ref_id=?)
+                      OR (kind IN ('proposal','approved') AND ref_id IN
+                          (SELECT id FROM trade_deals WHERE offer_id=?))""",
+                (offer_id, offer_id),
+            )
+            db.execute(
+                "DELETE FROM trade_messages WHERE deal_id IN (SELECT id FROM trade_deals WHERE offer_id=?)",
+                (offer_id,),
+            )
+            db.execute("DELETE FROM trade_deals WHERE offer_id=?", (offer_id,))
+            db.execute("DELETE FROM trade_likes WHERE offer_id=?", (offer_id,))
+            db.execute("DELETE FROM trade_offers WHERE id=?", (offer_id,))
+        flash("投稿を削除しました。", "success")
+        return redirect(
+            url_for("trade.index", mine=1, status="closed" if item["closed_at"] else None),
+            code=303,
+        )
+
     @board.post("/trade/<int:offer_id>/apply")
     def apply(offer_id):
         user_id = session["discord_id"]
@@ -261,8 +319,8 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 return redirect(url_for("trade.deal", deal_id=previous["id"]), code=303)
             save_profile(db, user_id, session["discord_name"])
             deal_id = db.execute(
-                "INSERT INTO trade_deals(offer_id, buyer_id, buyer_name) VALUES (?, ?, ?)",
-                (offer_id, user_id, session["discord_name"]),
+                "INSERT INTO trade_deals(id, offer_id, buyer_id, buyer_name) VALUES (?, ?, ?, ?)",
+                (next_id(db, "trade_deals"), offer_id, user_id, session["discord_name"]),
             ).lastrowid
             db.execute("INSERT INTO trade_messages(deal_id, sender_id, body) VALUES (?, ?, ?)", (deal_id, user_id, message))
             notify_proposal(db, item["owner_id"], deal_id)

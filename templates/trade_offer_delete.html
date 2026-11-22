@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}投稿削除の確認{% endblock %}
+{% block content %}
+  <section class="trade-compose">
+    <h1>この投稿を本当に削除しますか？</h1>
+    <p><strong>{{ item.offered }}</strong> ⇄ {{ item.wanted }}</p>
+    <p class="offer-note">この投稿に付いたいいねや、双方の交換実績から該当する取引が消えます。削除後は元に戻せません。</p>
+    <form class="trade-actions" action="{{ url_for('trade.delete_offer', offer_id=item.id) }}" method="post">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button name="confirm" value="delete" type="submit">削除する</button>
+      <a class="trade-back" href="{{ url_for('trade.offer', offer_id=item.id) }}">キャンセル</a>
+    </form>
+  </section>
+{% endblock %}

@@ -30,12 +30,12 @@ def register_notifications(board, database):
         schema = db.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='trade_notifications'"
         ).fetchone()
-        migrate = schema is not None and "'approved'" not in schema[0]
+        migrate = schema is not None and ("'approved'" not in schema[0] or "AUTOINCREMENT" not in schema[0])
         if migrate:
             db.execute("ALTER TABLE trade_notifications RENAME TO trade_notifications_previous")
         db.execute("""
             CREATE TABLE IF NOT EXISTS trade_notifications (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL REFERENCES trade_profiles(user_id),
                 kind TEXT NOT NULL CHECK(kind IN ('proposal','approved','wish')),
                 ref_id INTEGER NOT NULL,

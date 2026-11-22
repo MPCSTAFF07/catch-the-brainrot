@@ -59,6 +59,9 @@
         </div>
         <footer>{{ person(item.owner_id, item.owner_display_name, item.owner_avatar, item.owner_default_avatar) }}<span>♡ {{ item.likes }} <span aria-hidden="true">↗</span></span></footer>
       </a>
+      {% if mine %}
+        <a class="trade-back offer-delete" href="{{ url_for('trade.delete_offer', offer_id=item.id) }}" aria-label="{{ item.offered }}の投稿を削除">投稿削除</a>
+      {% endif %}
     </article>
   {% else %}
     <p class="trade-empty">

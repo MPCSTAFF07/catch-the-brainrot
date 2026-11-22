@@ -60,10 +60,15 @@
   {% if not own %}
     <p class="offer-note"><a href="{{ url_for('support.contact', kind='report', offer=item.id) }}">この募集を通報</a></p>
   {% endif %}
-  {% if own and not item.closed_at and not item.in_progress %}
-    <form class="trade-actions" action="{{ url_for('trade.close', offer_id=item.id) }}" method="post">
-      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
-      <button class="trade-secondary" type="submit">募集を締め切る</button>
-    </form>
+  {% if own %}
+    <div class="trade-actions">
+      {% if not item.closed_at and not item.in_progress %}
+        <form action="{{ url_for('trade.close', offer_id=item.id) }}" method="post">
+          <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+          <button class="trade-secondary" type="submit">募集を締め切る</button>
+        </form>
+      {% endif %}
+      <a class="trade-back" href="{{ url_for('trade.delete_offer', offer_id=item.id) }}">投稿削除</a>
+    </div>
   {% endif %}
 {% endblock %}
