@@ -116,17 +116,17 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
     @board.get("/")
     def index():
         query = text_arg(request.args, "q", 100)
-        category = request.args.get("category", "")
-        category = category if category in CATEGORIES else ""
         mine = request.args.get("mine") == "1"
+        category = request.args.get("category", "")
+        category = category if not mine and category in CATEGORIES else ""
+        status = "closed" if mine and request.args.get("status") == "closed" else "open"
         sort = "old" if request.args.get("sort") == "old" else "new"
         page = min(100000, max(1, request.args.get("page", 1, type=int)))
         criteria, values = [], []
         if mine:
             criteria.append("o.owner_id = ?")
             values.append(session["discord_id"])
-        else:
-            criteria.append("o.closed_at IS NULL")
+        criteria.append("o.closed_at IS NOT NULL" if status == "closed" else "o.closed_at IS NULL")
         if category:
             criteria.append("o.category = ?")
             values.append(category)
@@ -149,7 +149,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             ).fetchall()
         return render_template(
             "trade.html", offers=rows[:PAGE_SIZE], query=query, mine=mine,
-            page=page, has_next=len(rows) > PAGE_SIZE, sort=sort,
+            page=page, has_next=len(rows) > PAGE_SIZE, sort=sort, status=status,
             categories=CATEGORIES, category=category, active="trade", photo_limit=MAX_PHOTO_BYTES,
             mode="post" if request.args.get("mode") == "post" else "search",
         )
