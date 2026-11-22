@@ -1,4 +1,6 @@
 .env
 .venv/
 __pycache__/
-reaction_roles.sqlite3*
+reaction_roles*.sqlite3*
+.web-admin.json*
+.web-bot.json*

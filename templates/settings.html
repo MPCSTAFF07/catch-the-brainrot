@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Bot設定{% endblock %}
+{% block content %}
+  <h1>Bot設定</h1>
+  <p class="status">
+    <span class="indicator {% if state.connected %}online{% endif %}"></span>
+    {% if state.connected %}接続中 · {{ state.bot_name }}
+    {% elif state.configured %}未接続 · 設定済み
+    {% else %}未設定{% endif %}
+  </p>
+  <form method="post" class="panel form">
+    <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+    <label>DiscordサーバーID
+      <input name="guild_id" inputmode="numeric" pattern="[0-9]{17,20}" value="{{ state.guild_id }}" required>
+    </label>
+    <label>Botトークン
+      <input name="token" type="password" autocomplete="new-password" maxlength="300" {% if not state.configured %}required{% endif %}>
+    </label>
+    {% if state.configured %}<p class="hint">空欄で保存すると現在のトークンを使用します。</p>{% endif %}
+    <button type="submit">保存して接続</button>
+  </form>
+{% endblock %}

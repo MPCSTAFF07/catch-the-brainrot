@@ -113,6 +113,60 @@ class ReactionRoleBot(discord.Client):
             except discord.HTTPException:
                 LOG.exception("ロール操作失敗: member_id=%s role_id=%s", payload.user_id, role.id)
 
+    async def add_binding(self, message_link: str, emoji: str, role: discord.Role) -> None:
+        channel_id, message_id = parse_message_link(message_link, self.guild_id)
+        emoji = emoji.strip()
+        key = emoji_key(emoji)
+        if not role.is_assignable() or not role.guild.me.guild_permissions.manage_roles:
+            raise ValueError("Botにロールの管理権限を付け、Botのロールを対象ロールより上に置いてください。")
+
+        async with self.message_lock(message_id):
+            values = (str(channel_id), str(message_id), key, emoji, str(role.id))
+            try:
+                with self.database:
+                    self.database.execute("INSERT INTO reaction_roles VALUES (?, ?, ?, ?, ?)", values)
+            except sqlite3.IntegrityError as error:
+                raise ValueError("このメッセージの絵文字、またはこのロールは登録済みです。") from error
+
+            seeded = False
+            try:
+                channel = self.get_partial_messageable(channel_id, guild_id=self.guild_id)
+                message = await channel.fetch_message(message_id)
+                await message.add_reaction(emoji)
+                seeded = True
+            except discord.NotFound as error:
+                raise ValueError("メッセージが見つからないか、Botがその絵文字を使えません。") from error
+            except discord.Forbidden as error:
+                raise ValueError("対象チャンネルでBotの閲覧・履歴閲覧・リアクション追加権限を確認してください。") from error
+            except discord.HTTPException as error:
+                raise ValueError("絵文字を付けられませんでした。Discordで使える絵文字を1つ入力してください。") from error
+            finally:
+                if not seeded:
+                    with self.database:
+                        self.database.execute(
+                            "DELETE FROM reaction_roles WHERE channel_id=? AND message_id=? AND emoji_key=?",
+                            values[:3],
+                        )
+
+    def bindings(self) -> list[tuple[str, str, str, str]]:
+        return self.database.execute(
+            "SELECT channel_id, message_id, emoji_label, role_id FROM reaction_roles ORDER BY channel_id, message_id"
+        ).fetchall()
+
+    async def remove_binding(self, role_id: str) -> bool:
+        binding = self.database.execute(
+            "SELECT message_id, emoji_key FROM reaction_roles WHERE role_id=?", (role_id,)
+        ).fetchone()
+        if binding is None:
+            return False
+        async with self.message_lock(int(binding[0])):
+            with self.database:
+                result = self.database.execute(
+                    "DELETE FROM reaction_roles WHERE role_id=? AND message_id=? AND emoji_key=?",
+                    (role_id, *binding),
+                )
+        return bool(result.rowcount)
+
 
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True)
@@ -144,89 +198,27 @@ class ReactionRoleCommands(app_commands.Group, name="reaction-role", description
     async def add(
         self, interaction: discord.Interaction, message_link: str, emoji: str, role: discord.Role
     ) -> None:
-        try:
-            channel_id, message_id = parse_message_link(message_link, self.bot.guild_id)
-            emoji = emoji.strip()
-            key = emoji_key(emoji)
-        except ValueError as error:
-            await interaction.response.send_message(str(error), ephemeral=True)
-            return
-        if not role.is_assignable():
-            await interaction.response.send_message(
-                "Botに「ロールの管理」権限を付け、Botのロールを対象ロールより上に置いてください。",
-                ephemeral=True,
-            )
-            return
-
         await interaction.response.defer(ephemeral=True, thinking=True)
-        async with self.bot.message_lock(message_id):
-            values = (str(channel_id), str(message_id), key, emoji, str(role.id))
-            try:
-                with self.bot.database:
-                    self.bot.database.execute("INSERT INTO reaction_roles VALUES (?, ?, ?, ?, ?)", values)
-            except sqlite3.IntegrityError:
-                await interaction.followup.send(
-                    "このメッセージの絵文字、またはこのロールは登録済みです。", ephemeral=True
-                )
-                return
-
-            seeded = False
-            try:
-                channel = self.bot.get_partial_messageable(channel_id, guild_id=self.bot.guild_id)
-                message = await channel.fetch_message(message_id)
-                await message.add_reaction(emoji)
-                seeded = True
-            except discord.NotFound:
-                await interaction.followup.send(
-                    "メッセージが見つからないか、Botがその絵文字を使えません。", ephemeral=True
-                )
-            except discord.Forbidden:
-                await interaction.followup.send(
-                    "Botに対象チャンネルの閲覧・履歴閲覧・リアクション追加権限を付けてください。",
-                    ephemeral=True,
-                )
-            except discord.HTTPException:
-                await interaction.followup.send(
-                    "絵文字を付けられませんでした。Discordで使える絵文字を1つ入力してください。",
-                    ephemeral=True,
-                )
-            finally:
-                if not seeded:
-                    with self.bot.database:
-                        self.bot.database.execute(
-                            "DELETE FROM reaction_roles WHERE channel_id=? AND message_id=? AND emoji_key=?",
-                            values[:3],
-                        )
-        if seeded:
+        try:
+            await self.bot.add_binding(message_link, emoji, role)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+        else:
             await interaction.followup.send(f"{emoji} → {role.mention} を登録しました。", ephemeral=True)
 
     @app_commands.command(name="remove", description="登録を解除する（付与済みのロールは維持）")
     @app_commands.describe(role="登録を解除するロール")
     async def remove(self, interaction: discord.Interaction, role: discord.Role) -> None:
-        role_id = str(role.id)
-        binding = self.bot.database.execute(
-            "SELECT message_id FROM reaction_roles WHERE role_id=?", (role_id,)
-        ).fetchone()
-        if binding is None:
-            await interaction.response.send_message("そのロールは登録されていません。", ephemeral=True)
-            return
-
         await interaction.response.defer(ephemeral=True, thinking=True)
-        async with self.bot.message_lock(int(binding[0])):
-            with self.bot.database:
-                result = self.bot.database.execute(
-                    "DELETE FROM reaction_roles WHERE role_id=? AND message_id=?", (role_id, binding[0])
-                )
-        message = "登録を解除しました。付与済みのロールはそのままです。"
-        if not result.rowcount:
-            message = "登録内容はすでに変更されています。"
+        if await self.bot.remove_binding(str(role.id)):
+            message = "登録を解除しました。付与済みのロールはそのままです。"
+        else:
+            message = "そのロールは登録されていません。"
         await interaction.followup.send(message, ephemeral=True)
 
     @app_commands.command(name="list", description="登録中のリアクションロールを表示")
     async def list_rules(self, interaction: discord.Interaction) -> None:
-        rows = self.bot.database.execute(
-            "SELECT channel_id, message_id, emoji_label, role_id FROM reaction_roles ORDER BY channel_id, message_id"
-        ).fetchall()
+        rows = self.bot.bindings()
         if not rows:
             await interaction.response.send_message("登録はまだありません。", ephemeral=True)
             return

@@ -1,91 +1,73 @@
 # catch-the-brainrot
 
-## Discord リアクションロール Bot
-
-管理者が指定したメッセージで、メンバーが通常リアクションを押すとロールが付き、外すとロールも外れます。設定はSQLiteに保存されます。Python 3.10以上を使用してください。
+Discordサーバーの管理画面です。左のメニューからBotの接続設定とリアクションロールを管理できます。Python 3.10以上を使用します。
 
 ## Discord側の準備
 
 1. [Discord Developer Portal](https://discord.com/developers/applications)でアプリを作成し、Botトークンを取得します。
-2. サーバーへのインストールに `bot` と `applications.commands` を設定します。Botに「ロールの管理」「チャンネルを見る」「メッセージ履歴を読む」「リアクションの追加」を付けて招待します。特権インテントの設定は不要です。
-3. サーバー設定でBotのロールを、付与するロールより上に移動します。対象チャンネルの権限も確認します。
-4. Discordで開発者モードを有効にして、対象のサーバーIDをコピーします。
+2. サーバーへのインストールに `bot` と `applications.commands` を設定し、Botを招待します。必要な権限は「ロールの管理」「チャンネルを見る」「メッセージ履歴を読む」「リアクションの追加」です。
+3. サーバー設定で、Botのロールを付与対象のロールより上に置きます。
+4. Discordの開発者モードを有効にし、サーバーIDをコピーします。
 
-## 起動
+## EC2で起動
 
-リポジトリをクローンして `catch-the-brainrot` フォルダーを開きます。以下はWindows PowerShell用です。
-
-```powershell
-Copy-Item .env.example .env
-notepad .env
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe bot.py
-```
-
-`.env` の `DISCORD_TOKEN` にBotトークン、`DISCORD_GUILD_ID` にサーバーIDを入力して保存します。トークンはチャットやGitHubに貼らず、このファイルにだけ設定してください。
-
-Linuxでは `cp .env.example .env` でコピーして編集し、`python3 -m venv .venv`、`.venv/bin/python -m pip install -r requirements.txt`、`.venv/bin/python bot.py` を実行します。
-
-## EC2（Ubuntu）で常時起動
-
-EC2にSSH接続し、`ubuntu` ユーザーで実行します。BotはDiscordへ外向きに接続します。Bot用の受信ポートやDNS設定は不要です。
+Ubuntuの `ubuntu` ユーザーで、EC2のSSHターミナルから実行してください。既存のNginxとCertbotを使います。作業前にDNSで `catch-the-brainrot.eggkingdom.com` のAレコードをEC2のパブリックIPv4アドレスに向けます。
 
 ```bash
 (
   set -e
-  sudo apt-get update
   sudo apt-get install -y git python3-venv
   cd "$HOME"
-  git clone https://github.com/MPCSTAFF07/catch-the-brainrot.git
+  if [ -d catch-the-brainrot/.git ]; then
+    git -C catch-the-brainrot pull --ff-only
+  else
+    git clone https://github.com/MPCSTAFF07/catch-the-brainrot.git
+  fi
   cd catch-the-brainrot
   python3 -m venv .venv
   .venv/bin/python -m pip install -r requirements.txt
-  install -m 600 .env.example .env
-  nano .env
-)
-```
-
-`.env` に `DISCORD_TOKEN` と `DISCORD_GUILD_ID` を入力します。nanoでは Ctrl+O → Enter で保存し、Ctrl+X で閉じます。
-
-```bash
-(
-  set -e
-  cd "$HOME/catch-the-brainrot"
+  if [ ! -f .web-admin.json ]; then
+    .venv/bin/python dashboard.py init-admin
+  fi
   sudo install -m 644 deploy/catch-the-brainrot.service /etc/systemd/system/catch-the-brainrot.service
   sudo systemctl daemon-reload
-  sudo systemctl enable --now catch-the-brainrot.service
-)
-sudo journalctl -u catch-the-brainrot.service -n 30 --no-pager
-```
-
-ログに「ログイン完了」が出たら、Discordで `/reaction-role list` を実行して確認します。
-
-更新するときは次を実行します。リアクションロールの設定は `reaction_roles.sqlite3` に保存されます。
-
-```bash
-(
-  set -e
-  cd "$HOME/catch-the-brainrot"
-  git pull --ff-only
-  .venv/bin/python -m pip install -r requirements.txt
-  sudo install -m 644 deploy/catch-the-brainrot.service /etc/systemd/system/catch-the-brainrot.service
-  sudo systemctl daemon-reload
+  sudo systemctl enable catch-the-brainrot.service
   sudo systemctl restart catch-the-brainrot.service
 )
-sudo journalctl -u catch-the-brainrot.service -n 30 --no-pager
 ```
 
-## Discord内での設定
+初回のパスワード設定はWeb管理画面にログインするためのものです。Botトークンは後からWebで設定します。既存の `.env` がある環境では、Webで設定を保存するまでは既存のBot設定を読み込みます。
 
-1. 案内メッセージを投稿し、右クリックから「メッセージリンクをコピー」を選びます。
-2. 管理者が `/reaction-role add` を実行し、`message_link` にリンク、`emoji` に絵文字（例 `🔔`）、`role` に対象ロールを指定します。Botがメッセージに絵文字を付けます。カスタム絵文字は Discord の `<:name:id>` または `<a:name:id>` 形式を使います。
-3. 一般メンバーで絵文字を押し、ロールが付くことを確認します。同じ絵文字をもう一度押すとロールが外れます。
+DNSがEC2に向いたら、同じターミナルでこのサブドメイン用のNginx設定とHTTPSを有効にします。既存のサブドメインと同じ名前を使っている場合は、先にその設定を確認してください。
 
-`/reaction-role list` で登録を確認し、`/reaction-role remove` で登録を解除できます。解除時にはメッセージの絵文字と既に付いたロールが残ります。各ロールにつき登録は1つです。
+```bash
+(
+  set -e
+  cd "$HOME/catch-the-brainrot"
+  sudo install -m 644 deploy/brainrot.nginx /etc/nginx/sites-available/catch-the-brainrot
+  sudo ln -sfn /etc/nginx/sites-available/catch-the-brainrot /etc/nginx/sites-enabled/catch-the-brainrot
+  sudo nginx -t
+  sudo systemctl reload nginx
+  sudo certbot --nginx --redirect -d catch-the-brainrot.eggkingdom.com
+)
+```
 
-リアクションの削除時は、手動付与された同じロールも外れます。この機能には通知用など、リアクションで管理する専用ロールを使ってください。登録前やBotの停止中の操作のさかのぼり同期、メッセージ削除やリアクション一括削除によるロール解除は行いません。通常リアクションで操作してください。
+管理画面はHTTPS経由で使います。EC2側で使用する外部ポートは既存のHTTP/HTTPS用の80/443です。アプリの8791はEC2内部のループバックで待ち受けます。
 
-## ドメイン
+## Webで設定
 
-関連Web機能のドメインは `eggkingdom.com` です。リアクションロールBotはDiscordに直接接続するため、ドメインやDNSの設定は不要です。
+1. [管理画面](https://catch-the-brainrot.eggkingdom.com)を開き、設定した管理パスワードでログインします。
+2. 左の「Bot設定」でDiscordサーバーIDとトークンを入力し、「保存して接続」を押します。少し待ってから画面を更新し、「接続中」を確認します。
+3. 「リアクションロール」で、既存の案内メッセージのリンク、絵文字、ロールを入力して登録します。Botが対象メッセージに絵文字を付けます。
+4. 一般メンバーで絵文字を押すとロールが付き、通常リアクションを外すとロールも外れます。各ロールにつき登録は1つです。手動で同じロールを持っている場合も、通常リアクションを外すとロールが外れるため、通知用などの専用ロールを使ってください。
+
+WebまたはDiscordの `/reaction-role add`、`list`、`remove` で同じ登録を管理できます。登録を解除しても、すでに付与したロールは維持されます。運用開始前やBot停止中のリアクションの変更はさかのぼって反映しません。
+
+## 更新とログ
+
+初回起動手順の最初のコマンドを再実行すると、ソースと依存関係を更新しサービスを再起動します。Web管理者設定、Botトークン、SQLiteの設定データはEC2内に保存されます。復旧用バックアップを取る場合は、EC2内で所有者だけが読み取れる場所に保管してください。
+
+```bash
+sudo systemctl status catch-the-brainrot.service --no-pager
+sudo journalctl -u catch-the-brainrot.service -n 40 --no-pager
+```

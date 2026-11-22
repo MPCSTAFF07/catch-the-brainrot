@@ -1,5 +1,5 @@
 [Unit]
-Description=Catch the Brainrot Discord reaction role bot
+Description=Catch the Brainrot Discord bot and dashboard
 Wants=network-online.target
 After=network-online.target
 
@@ -7,7 +7,7 @@ After=network-online.target
 Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/catch-the-brainrot
-ExecStart=/home/ubuntu/catch-the-brainrot/.venv/bin/python /home/ubuntu/catch-the-brainrot/bot.py
+ExecStart=/home/ubuntu/catch-the-brainrot/.venv/bin/python /home/ubuntu/catch-the-brainrot/dashboard.py
 Restart=on-failure
 RestartSec=5
 UMask=0077

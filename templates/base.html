@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body class="{% if not session.get('authenticated') %}signed-out{% endif %}">
+{% if session.get('authenticated') %}
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('reactions') }}"><span>Catch the Brainrot</span><small>サーバー管理</small></a>
+    <nav aria-label="管理メニュー">
+      <a href="{{ url_for('reactions') }}" {% if active == 'reactions' %}aria-current="page"{% endif %}>リアクションロール</a>
+      <a href="{{ url_for('settings') }}" {% if active == 'settings' %}aria-current="page"{% endif %}>Bot設定</a>
+    </nav>
+    <form class="logout" action="{{ url_for('logout') }}" method="post">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button class="quiet" type="submit">ログアウト</button>
+    </form>
+  </aside>
+{% endif %}
+<main>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <p class="notice {{ category }}" role="status">{{ message }}</p>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>
