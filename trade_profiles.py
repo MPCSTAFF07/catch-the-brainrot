@@ -269,16 +269,25 @@ def register_profiles(board, database, fetch_profile_images=None):
     def follow(user_id):
         action = request.form.get("action")
         me = session["discord_id"]
+        offer_id = request.form.get("offer_id", type=int)
         if not USER_ID.fullmatch(user_id) or user_id == me or action not in {"add", "remove"}:
             abort(400)
         with database(write=True) as db:
             if db.execute("SELECT 1 FROM trade_profiles WHERE user_id=?", (user_id,)).fetchone() is None:
+                abort(404)
+            if offer_id is not None and (
+                not 1 <= offer_id <= 2**63 - 1 or db.execute(
+                    "SELECT 1 FROM trade_offers WHERE id=? AND owner_id=?", (offer_id, user_id)
+                ).fetchone() is None
+            ):
                 abort(404)
             if action == "add":
                 save_current_user(db)
                 db.execute("INSERT OR IGNORE INTO trade_follows VALUES (?, ?)", (me, user_id))
             else:
                 db.execute("DELETE FROM trade_follows WHERE follower_id=? AND followed_id=?", (me, user_id))
+        if offer_id is not None:
+            return redirect(url_for("trade.offer", offer_id=offer_id), code=303)
         return redirect(url_for("trade.profile", user_id=user_id), code=303)
 
     @board.post("/profile/wishes")

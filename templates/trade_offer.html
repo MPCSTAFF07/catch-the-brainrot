@@ -2,6 +2,7 @@
 {% block title %}{{ item.offered }}の交換募集{% endblock %}
 {% block content %}
   <a class="trade-back" href="{{ url_for('trade.index', mine=1 if own else none) }}">← {{ '自分の募集' if own else '交換を探す' }}</a>
+  <div class="offer-detail-layout{% if own %} is-own{% endif %}">
   <section class="trade-compose">
     <div class="offer-head">
       <span class="trade-tag">{{ categories[item.category] }}</span>
@@ -13,24 +14,34 @@
       <div><span>出品者</span><strong><a href="{{ url_for('trade.profile', user_id=item.owner_id) }}">{{ item.owner_name }}</a></strong></div>
     </div>
     {% if item.note %}<p class="offer-note">{{ item.note }}</p>{% endif %}
-    {% if not own %}
-    <form class="trade-actions" action="{{ url_for('trade.like_offer', offer_id=item.id) }}" method="post">
-      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
-      <button class="trade-secondary" name="action" value="{{ 'remove' if likes.mine else 'add' }}" type="submit">{{ '♥ いいね済み' if likes.mine else '♡ いいね' }} · {{ likes.total }}</button>
-    </form>
-    {% else %}<p class="offer-note">♥ いいね {{ likes.total }}</p>{% endif %}
+    {% if own %}<p class="offer-note">♥ いいね {{ likes.total }}</p>{% endif %}
   </section>
-
-  {% if can_apply %}
-    <section class="trade-compose">
-      <h2>交換を申し込む</h2>
-      <form class="form" action="{{ url_for('trade.apply', offer_id=item.id) }}" method="post">
+  {% if not own %}
+    <aside class="trade-compose offer-detail-actions" aria-label="募集への操作">
+      {% if can_apply %}
+      <details class="offer-proposal">
+        <summary>提案</summary>
+        <form class="form" action="{{ url_for('trade.apply', offer_id=item.id) }}" method="post">
+          <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+          <label>提案内容<textarea name="message" rows="3" maxlength="1000" required placeholder="出せるものや交換できる時間を伝える"></textarea></label>
+          <button type="submit">提案を送る</button>
+        </form>
+      </details>
+      {% else %}
+      <button type="button" disabled>提案</button>
+      {% endif %}
+      <form action="{{ url_for('trade.follow', user_id=item.owner_id) }}" method="post">
         <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
-        <label>出品者へのメッセージ<textarea name="message" rows="3" maxlength="1000" required placeholder="出せるものや交換できる時間を伝える"></textarea></label>
-        <button type="submit">申込みを送る</button>
+        <input type="hidden" name="offer_id" value="{{ item.id }}">
+        <button class="trade-secondary" name="action" value="{{ 'remove' if following else 'add' }}" type="submit">{{ 'フォロー解除' if following else 'フォロー' }}</button>
       </form>
-    </section>
+      <form action="{{ url_for('trade.like_offer', offer_id=item.id) }}" method="post">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <button class="trade-secondary" name="action" value="{{ 'remove' if likes.mine else 'add' }}" type="submit">{{ '♥ いいね済み' if likes.mine else '♡ いいね' }} <span>· {{ likes.total }}</span></button>
+      </form>
+    </aside>
   {% endif %}
+  </div>
 
   {% if deals %}
     <section class="trade-compose">

@@ -303,3 +303,36 @@
   .profile-offer-grid { gap: 5px; }
   .profile-offer { padding: 6px; font-size: 12px; }
 }
+
+.offer-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
+  align-items: start;
+  gap: 14px;
+}
+.offer-detail-layout.is-own { grid-template-columns: minmax(0, 1fr); }
+.offer-detail-actions { display: grid; gap: 8px; padding: 14px; }
+.offer-detail-actions button, .offer-proposal summary { width: 100%; }
+.offer-detail-actions button:disabled { background: #392e43; color: var(--trade-muted); cursor: default; }
+.offer-detail-actions button span { margin-inline-start: 5px; }
+.offer-proposal summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  padding: 8px 15px;
+  background: var(--trade-accent);
+  color: #201826;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+  clip-path: var(--trade-cut);
+}
+.offer-proposal summary::-webkit-details-marker { display: none; }
+.offer-proposal summary:hover { filter: brightness(0.87); }
+.offer-proposal summary:focus-visible { outline-offset: -5px; outline-color: #432957; }
+.offer-proposal .form { margin-top: 10px; }
+@media (max-width: 650px) {
+  .offer-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

@@ -162,6 +162,10 @@ def create_trade_board(db_path, fetch_profile_images=None):
                 "SELECT COUNT(*) AS total, COUNT(CASE WHEN user_id=? THEN 1 END) AS mine FROM trade_likes WHERE offer_id=?",
                 (session["discord_id"], offer_id),
             ).fetchone()
+            following = not own and db.execute(
+                "SELECT 1 FROM trade_follows WHERE follower_id=? AND followed_id=?",
+                (session["discord_id"], item["owner_id"]),
+            ).fetchone() is not None
             if own:
                 deals = db.execute("SELECT * FROM trade_deals WHERE offer_id=? ORDER BY id DESC", (offer_id,)).fetchall()
             else:
@@ -173,7 +177,7 @@ def create_trade_board(db_path, fetch_profile_images=None):
                          any(deal["status"] == "pending" for deal in deals))
         return render_template(
             "trade_offer.html", item=item, own=own, deals=deals, can_apply=can_apply,
-            categories=CATEGORIES, statuses=DEAL_STATUS, likes=likes, active="trade",
+            categories=CATEGORIES, statuses=DEAL_STATUS, likes=likes, following=following, active="trade",
         )
 
     @board.post("/trade/<int:offer_id>/close")
