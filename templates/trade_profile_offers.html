@@ -6,7 +6,7 @@
   <a class="trade-back" href="{{ url_for('trade.profile', user_id=uid) }}">← プロフィールに戻る</a>
   <section class="trade-compose profile-panel">
     <h1>{{ heading }}</h1>
-    <div class="profile-offer-grid{% if section == 'liked' %} is-stacked{% endif %}">
+    <div class="profile-offer-grid">
       {% for offer in offers %}
         {{ profile_offer(offer) }}
       {% else %}

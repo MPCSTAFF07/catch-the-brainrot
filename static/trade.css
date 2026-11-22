@@ -373,10 +373,3 @@ a.trade-person:hover { text-decoration: underline; }
 .offer-detail-photo { width: 116px; max-width: 40%; height: 88px; object-fit: contain; border-radius: 4px; background: #211b2a; }
 .trade-page input[type="file"] { min-height: 42px; }
 .offer-item-photo strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.profile-offer-grid.is-stacked { grid-template-columns: minmax(0, 1fr); }
-.profile-offer-grid.is-stacked .profile-offer {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid var(--trade-border);
-  border-left: 2px solid var(--trade-accent);
-}
