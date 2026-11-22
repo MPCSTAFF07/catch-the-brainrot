@@ -44,6 +44,7 @@ class ReactionRoleBot(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_reactions = True
+        intents.emojis_and_stickers = True
         super().__init__(intents=intents)
         self.guild_id = guild_id
         self.database = database

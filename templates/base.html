@@ -4,17 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='menu-slide-2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='server-emoji-1') }}">
   {% if active in ("trade", "trade_inbox") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='menu-slide-2') }}">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='motion.css', v='menu-slide-2') }}">
   {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js', v='menu-slide-2') }}" defer></script>{% endif %}
+  {% if active == 'reactions' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='reaction-picker.css') }}">
+  <script src="{{ url_for('static', filename='reaction-picker.js') }}" defer></script>
+  {% endif %}
 </head>
 <body class="{% if session.get('discord_id') %}signed-in{% if active in ('trade', 'trade_inbox') %} trade-page{% endif %}{% else %}signed-out{% endif %}">
 {% if session.get('discord_id') %}
   <header class="site-header">
     <div class="site-header-inner">
       <a class="brand" href="{{ url_for('trade.index') }}" lang="en" aria-label="Catch The Brainrot">
-        <span>Catch</span><span>The</span><span>Brainrot</span>
+        <img class="site-avatar" src="{{ url_for('static', filename='brainrot-avatar.webp') }}" alt="" width="42" height="42">
+        <span class="brand-name"><span>Catch</span><span>The</span><span>Brainrot</span></span>
       </a>
       <form class="logout" action="{{ url_for('logout') }}" method="post">
         <input type="hidden" name="csrf" value="{{ session['csrf'] }}">

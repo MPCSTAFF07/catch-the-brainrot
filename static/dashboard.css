@@ -193,13 +193,18 @@ td a { white-space: nowrap; }
 .site-header .brand {
   justify-self: start;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
   font-size: 17px;
   font-weight: 900;
   font-style: italic;
   line-height: 1.02;
   text-decoration: none;
 }
+
+.brand-name { display: grid; }
+.site-avatar { display: block; border-radius: 50%; object-fit: cover; }
 
 .site-menu summary {
   display: grid;

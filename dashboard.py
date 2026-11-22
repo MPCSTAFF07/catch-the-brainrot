@@ -210,6 +210,11 @@ class BotManager:
                 "guild_id": self.settings.get("guild_id", ""),
                 "bot_name": str(bot.user) if guild is not None else "",
                 "roles": roles,
+                "emojis": [
+                    {"name": emoji.name, "value": str(emoji), "id": str(emoji.id)}
+                    for emoji in sorted(guild.emojis, key=lambda emoji: emoji.name.casefold())
+                    if emoji.is_usable()
+                ] if action == "reactions" and guild is not None and guild.me is not None else [],
                 "bindings": bot.bindings() if bot else [],
             }
 
@@ -273,7 +278,10 @@ def create_app(manager, admin):
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
+        policy = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
+        if request.endpoint == "reactions":
+            policy += "; img-src 'self' https://cdn.discordapp.com"
+        response.headers["Content-Security-Policy"] = policy
         return response
 
     @app.get("/login")
@@ -390,7 +398,7 @@ def create_app(manager, admin):
     @app.get("/reactions")
     @admin_required
     def reactions():
-        return render_template("reactions.html", state=manager.call("status", {}), active="reactions")
+        return render_template("reactions.html", state=manager.call("reactions", {}), active="reactions")
 
     @app.post("/reactions/add")
     @admin_required

@@ -1,0 +1,64 @@
+.reaction-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reaction-emoji-field { min-width: 0; }
+.reaction-emoji-field > label { margin-bottom: 6px; }
+.reaction-emoji-controls { position: relative; display: flex; gap: 6px; }
+.reaction-emoji-controls > input { min-width: 0; }
+
+.emoji-picker > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 42px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  list-style: none;
+  white-space: nowrap;
+  font-size: 14px;
+  cursor: pointer;
+}
+.emoji-picker > summary::-webkit-details-marker { display: none; }
+.emoji-picker[open] > summary { background: #ede9f3; }
+
+.emoji-picker-panel {
+  position: absolute;
+  z-index: 4;
+  inset: calc(100% + 6px) 0 auto auto;
+  display: grid;
+  gap: 12px;
+  width: min(340px, 100%);
+  padding: 12px;
+  border: 1px solid #534763;
+  border-radius: 8px;
+  background: #25212e;
+  color: #eee8f3;
+  box-shadow: 0 10px 24px rgb(24 14 34 / 25%);
+}
+.emoji-picker:not([open]) > .emoji-picker-panel { display: none; }
+.emoji-picker-panel .emoji-search { background: #302938; border-color: #746782; color: inherit; }
+.emoji-search::placeholder { color: #ccc2d6; }
+.emoji-results { max-height: min(280px, 45dvh); overflow: auto; }
+.emoji-group + .emoji-group { margin-top: 12px; }
+.emoji-group h3 { margin: 0 0 6px; font-size: 13px; color: #ddd2e7; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 3px; }
+.emoji-option {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 21px;
+}
+.emoji-option:hover, .emoji-option:focus-visible { background: #4d405e; }
+.emoji-option[hidden] { display: none; }
+.emoji-option img { display: block; object-fit: contain; }
+.emoji-hint { margin: 0 0 8px; color: #ddd2e7; font-size: 13px; }
+
+@media (max-width: 650px) {
+  .reaction-fields { grid-template-columns: minmax(0, 1fr); }
+}

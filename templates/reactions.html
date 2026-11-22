@@ -13,8 +13,44 @@
         <label>メッセージリンク
           <input type="url" name="message_link" placeholder="https://discord.com/channels/…" required>
         </label>
-        <div class="fields">
-          <label>絵文字<input name="emoji" placeholder="🔔" maxlength="64" required></label>
+        <div class="fields reaction-fields">
+          <div class="reaction-emoji-field">
+            <label for="reaction-emoji">絵文字</label>
+            <div class="reaction-emoji-controls">
+              <input id="reaction-emoji" name="emoji" placeholder="🔔" maxlength="64" required>
+              <details class="emoji-picker">
+                <summary aria-label="絵文字一覧">☺ <span>一覧</span></summary>
+                <div class="emoji-picker-panel" aria-label="絵文字一覧">
+                  <input class="emoji-search" type="search" aria-label="絵文字を検索" placeholder="絵文字を検索" autocomplete="off">
+                  <div class="emoji-results">
+                    {% if state.emojis %}
+                    <section class="emoji-group">
+                      <h3>サーバーの絵文字</h3>
+                      <div class="emoji-grid">
+                        {% for emoji in state.emojis %}
+                        <button type="button" class="emoji-option" data-value="{{ emoji.value }}" data-name="{{ emoji.name }}" aria-label="{{ emoji.name }}" title=":{{ emoji.name }}:">
+                          <img src="https://cdn.discordapp.com/emojis/{{ emoji.id }}.png?size=48" alt="" width="26" height="26" loading="lazy">
+                        </button>
+                        {% endfor %}
+                      </div>
+                    </section>
+                    {% else %}
+                    <p class="emoji-hint">このサーバーでBotが使えるカスタム絵文字はありません。</p>
+                    {% endif %}
+                    <section class="emoji-group">
+                      <h3>よく使う絵文字</h3>
+                      <div class="emoji-grid">
+                        {% for value, name in [('👍','いいね'), ('✅','チェック'), ('❌','バツ'), ('🔔','通知 ベル'), ('🎉','クラッカー'), ('❤️','ハート'), ('⭐','星'), ('🔥','炎'), ('👀','目'), ('😂','笑い'), ('🤝','握手 交換'), ('🎮','ゲーム'), ('🐊','ワニ'), ('💎','宝石'), ('📢','メガホン'), ('🎁','プレゼント')] %}
+                        <button type="button" class="emoji-option" data-value="{{ value }}" data-name="{{ name }}" aria-label="{{ name }}" title="{{ name }}">{{ value }}</button>
+                        {% endfor %}
+                      </div>
+                    </section>
+                    <p class="emoji-hint emoji-no-results" hidden>該当する絵文字がありません。</p>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
           <label>付与するロール
             <select name="role" required>
               <option value="">ロールを選択</option>
