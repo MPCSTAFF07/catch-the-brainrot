@@ -62,7 +62,7 @@ DNSがEC2に向いたら、同じターミナルでこのサブドメイン用�
 )
 ```
 
-管理画面はHTTPS経由で使います。EC2側で使用する外部ポートは既存のHTTP/HTTPS用の80/443です。アプリの8791はEC2内部のループバックで待ち受けます。
+管理画面はHTTPS経由で使います。EC2側で使用する外部ポートは既存のHTTP/HTTPS用の80/443です。アプリの18791はEC2内部のループバックで待ち受けます。
 
 ## Webで設定
 
@@ -76,6 +76,27 @@ WebまたはDiscordの `/reaction-role add`、`list`、`remove` で同じ登録�
 ## 管理者の追加・削除
 
 左の「管理者」からユーザーIDを追加します。削除すると、そのアカウントは開いていたセッションでも次の画面操作から管理権限を失います。初期管理者を変更する場合は、EC2で `.venv/bin/python dashboard.py init-admin` を実行し、サービスを再起動してください。追加済みの管理者は維持されます。
+
+## 旧ポート（8791）から切り替える場合
+
+HTTPS発行済みなら、Nginxのサイト設定をテンプレートで上書きせず、稼働中の設定の接続先だけ変更します。18791が空いていることを `sudo ss -ltnp 'sport = :18791'` で確認します。見出しだけなら空いています。
+
+```bash
+(
+  set -e
+  cd "$HOME/catch-the-brainrot"
+  git pull --ff-only
+  sudo systemctl restart catch-the-brainrot.service
+  curl -fsS --retry 4 --retry-connrefused --max-time 3 -o /dev/null \
+    -H 'Host: catch-the-brainrot.eggkingdom.com' -H 'X-Forwarded-Proto: https' \
+    http://127.0.0.1:18791/
+  site=/etc/nginx/sites-available/catch-the-brainrot
+  sudo test -f "$site"
+  sudo sed -i 's|proxy_pass http://127\.0\.0\.1:8791;|proxy_pass http://127.0.0.1:18791;|' "$site"
+  sudo nginx -t
+  sudo systemctl reload nginx
+)
+```
 
 ## 更新とログ
 
