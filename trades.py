@@ -6,6 +6,7 @@ from flask import Blueprint, Response, abort, flash, redirect, render_template, 
 
 from offer_photos import MAX_PHOTO_BYTES, prepare_offer_photo
 from trade_profiles import register_profiles, save_profile
+from trade_notifications import notify_proposal, notify_wanted_item, register_notifications
 
 PAGE_SIZE = 24
 PROVISION_TIMEOUT = 90
@@ -181,6 +182,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             )
             if photo:
                 db.execute("INSERT INTO trade_offer_photos VALUES (?, ?, ?)", (result.lastrowid, *photo))
+            notify_wanted_item(db, session["discord_id"], result.lastrowid, offered)
         flash("交換募集を投稿しました。", "success")
         return redirect(url_for("trade.offer", offer_id=result.lastrowid), code=303)
 
@@ -263,6 +265,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 (offer_id, user_id, session["discord_name"]),
             ).lastrowid
             db.execute("INSERT INTO trade_messages(deal_id, sender_id, body) VALUES (?, ?, ?)", (deal_id, user_id, message))
+            notify_proposal(db, item["owner_id"], deal_id)
         flash("交換を申し込みました。", "success")
         return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
 
@@ -403,4 +406,5 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
         return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
 
     register_profiles(board, database, fetch_profile_images)
+    register_notifications(board, database)
     return board

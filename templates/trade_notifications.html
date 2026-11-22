@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "trade_person.html" import person %}
+{% block title %}通知{% endblock %}
+{% block content %}
+<h1>通知</h1>
+<div class="notification-layout">
+  <section class="trade-compose notification-content" aria-label="通知の内容">
+    {% if selected %}
+      <p class="notification-type">{{ '提案' if selected.kind == 'proposal' else '欲しいキャラ' }}</p>
+      <h2>{{ '交換の提案が届きました' if selected.kind == 'proposal' else '欲しいキャラが出品されました' }}</h2>
+      {% if selected.actor_id %}
+        {{ person(selected.actor_id, selected.actor_name, selected.actor_avatar, selected.actor_default_avatar, link=true) }}
+      {% endif %}
+      {% if selected.offer_id %}
+        <p class="notification-offer"><strong>{{ selected.offered }}</strong> ⇄ {{ selected.wanted }}</p>
+      {% endif %}
+      {% if proposal %}<p class="notification-text">{{ proposal.body }}</p>{% endif %}
+      {% if selected.proposal_status == 'declined' %}
+        <p>この提案は却下済みです。</p>
+      {% elif selected.kind == 'proposal' %}
+        <a class="notification-link" href="{{ url_for('trade.deal', deal_id=selected.ref_id) }}">提案を見る →</a>
+      {% elif selected.offer_id %}
+        {% if selected.closed_at %}<p>この募集は締め切られました。</p>{% endif %}
+        <a class="notification-link" href="{{ url_for('trade.offer', offer_id=selected.offer_id) }}">募集を見る →</a>
+      {% endif %}
+      {% if not selected.read_at %}
+      <form class="notification-mark" method="post" action="{{ url_for('trade.open_notification', notification_id=selected.id) }}">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <button class="trade-secondary" type="submit">既読にする</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <p class="hint">右の一覧から通知を選んでください。</p>
+    {% endif %}
+  </section>
+  <section class="trade-compose notification-list" aria-label="通知一覧">
+    <h2>すべての通知</h2>
+    {% for entry in rows %}
+      <form method="post" action="{{ url_for('trade.open_notification', notification_id=entry.id) }}">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <button type="submit" class="notification-row{% if not entry.read_at %} is-unread{% endif %}" {% if selected and selected.id == entry.id %}aria-current="true"{% endif %}>
+          <span>{{ '提案が届きました' if entry.kind == 'proposal' else '欲しいキャラの出品' }}</span>
+          <strong>{{ entry.offered or '募集' }}</strong>
+          {% if not entry.read_at %}<small>未読</small>{% endif %}
+        </button>
+      </form>
+    {% else %}
+      <p class="hint">まだ通知はありません。</p>
+    {% endfor %}
+    {% if page > 1 or has_next %}
+      <nav class="trade-pages" aria-label="ページ移動">
+        {% if page > 1 %}<a href="{{ url_for('trade.notifications', page=page-1) }}">前のページ</a>{% endif %}
+        {% if has_next %}<a href="{{ url_for('trade.notifications', page=page+1) }}">次のページ</a>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

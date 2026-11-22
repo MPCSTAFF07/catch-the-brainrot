@@ -291,3 +291,27 @@ td a { white-space: nowrap; }
 .support-form textarea { width: 100%; padding: 8px; font: inherit; }
 
 .site-footer-links { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+.site-header-inner { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.header-mail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-decoration: none;
+}
+.header-mail:hover, .header-mail[aria-current] { background: #efefed; }
+.header-mail-icon { display: block; position: relative; width: 20px; height: 15px; border: 1.5px solid currentColor; border-radius: 2px; overflow: hidden; }
+.header-mail-icon::after { content: ""; position: absolute; top: -7px; left: 4px; width: 11px; height: 11px; border: 1.5px solid currentColor; border-left: 0; border-top: 0; transform: rotate(45deg); }
+.header-mail-badge { position: absolute; inset: -5px -5px auto auto; min-width: 18px; padding: 1px 4px; border-radius: 12px; background: #8a295d; color: #fff; font-size: 10px; font-weight: 800; text-align: center; }
+.header-mail-badge[hidden], .notification-toast[hidden] { display: none; }
+.notification-toast { position: fixed; z-index: 30; right: 14px; top: 86px; padding: 12px; border: 1px solid var(--border); background: var(--paper); font-size: 14px; }
+@media (max-width: 400px) {
+  .site-header-inner { gap: 5px; padding-inline: 8px; }
+  .site-header .brand { gap: 4px; font-size: 13px; }
+  .site-avatar { width: 30px; height: 30px; }
+  .header-profile { padding-inline: 5px; font-size: 12px; }
+}
