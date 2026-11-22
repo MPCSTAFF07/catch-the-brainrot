@@ -5,3 +5,4 @@ reaction_roles*.sqlite3*
 .web-admin.json*
 .web-bot.json*
 trades.sqlite3*
+support.sqlite3*

@@ -25,11 +25,13 @@ from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
 from trades import create_trade_board
+from site_support import create_support
 from trade_profiles import remember_profile
 
 ADMIN_FILE = ROOT / ".web-admin.json"
 BOT_FILE = ROOT / ".web-bot.json"
 TRADE_DB = ROOT / "trades.sqlite3"
+SUPPORT_DB = ROOT / "support.sqlite3"
 LOG = logging.getLogger("dashboard")
 CALLBACK_URL = "https://catch-the-brainrot.eggkingdom.com/auth/discord/callback"
 DISCORD_API = "https://discord.com/api/v10"
@@ -333,6 +335,7 @@ def create_app(manager, admin):
         return manager.call("trade_channel", {"deal_id": deal_id, "owner_id": owner_id, "buyer_id": buyer_id})
 
     app.register_blueprint(create_trade_board(TRADE_DB, fetch_profile_images, create_trade_channel))
+    app.register_blueprint(create_support(SUPPORT_DB, TRADE_DB))
 
     def allowed_ids():
         return read_settings(ADMIN_FILE).get("admin_ids", [])
@@ -352,7 +355,9 @@ def create_app(manager, admin):
                 abort(400)
         user_id = session.get("discord_id")
         g.is_admin = bool(user_id and user_id in allowed_ids())
-        if request.endpoint not in {"login", "discord_login", "discord_callback"} and not user_id:
+        if request.endpoint not in {
+            "login", "discord_login", "discord_callback", "support.terms", "support.privacy", "support.contact",
+        } and not user_id:
             return redirect(url_for("login"))
         return None
 

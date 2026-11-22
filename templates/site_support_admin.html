@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}お問い合わせ・通報管理{% endblock %}
+{% block content %}
+  <h1>お問い合わせ・通報管理</h1>
+  {% for case in cases %}
+    <section class="panel">
+      <h2>#{{ case.id }} {{ kinds[case.kind] }}</h2>
+      {% if case.offer_id %}<p><a href="{{ url_for('trade.offer', offer_id=case.offer_id) }}">通報された募集を開く</a></p>{% endif %}
+      {% if case.sender %}<p>Discord ID：{{ case.sender }}</p>{% endif %}
+      {% if case.email %}<p>返信用メール：{{ case.email }}</p>{% endif %}
+      <p class="support-copy">{{ case.body }}</p>
+      <form action="{{ url_for('support.update', case_id=case.id) }}" method="post" class="form support-form">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        {% if case.sender %}
+          <label>サイト上での返信<textarea name="reply" rows="3" maxlength="1800">{{ case.reply }}</textarea></label>
+        {% elif case.email %}
+          <p class="hint">返信は上記のメールアドレスへ行ってください。この画面からメールは送信されません。</p>
+        {% endif %}
+        <label>対応状況<select name="status">
+          <option value="open" {% if case.status == 'open' %}selected{% endif %}>未対応</option>
+          <option value="closed" {% if case.status == 'closed' %}selected{% endif %}>対応済み</option>
+        </select></label>
+        <button type="submit">保存</button>
+      </form>
+    </section>
+  {% else %}
+    <p class="hint">お問い合わせ・通報はありません。</p>
+  {% endfor %}
+  {% if page > 1 or has_next %}
+    <nav aria-label="ページ移動">
+      {% if page > 1 %}<a href="{{ url_for('support.inbox', page=page-1) }}">前のページ</a>{% endif %}
+      {% if has_next %}<a href="{{ url_for('support.inbox', page=page+1) }}">次のページ</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

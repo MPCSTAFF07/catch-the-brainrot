@@ -282,3 +282,10 @@ td a { white-space: nowrap; }
   white-space: nowrap;
 }
 .header-profile:hover, .header-profile[aria-current] { background: #efefed; }
+
+.site-footer { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 24px; padding: 15px 0 4px; border-top: 1px solid var(--border); font-size: 13px; }
+.trade-page .site-footer { border-color: var(--trade-border); color: var(--trade-muted); }
+.policy-copy { line-height: 1.7; }
+.policy-copy h2:not(:first-child) { margin-top: 24px; }
+.support-copy { overflow-wrap: anywhere; white-space: pre-wrap; }
+.support-form textarea { width: 100%; padding: 8px; font: inherit; }

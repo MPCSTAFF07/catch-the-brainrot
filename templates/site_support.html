@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ kinds[kind] if offer_id else "お問い合わせ" }}{% endblock %}
+{% block content %}
+  <h1>{{ kinds[kind] if offer_id else "お問い合わせ" }}</h1>
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  <section class="panel">
+    <form method="post" class="form support-form">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      {% if offer_id %}
+        <input type="hidden" name="kind" value="report">
+        <input type="hidden" name="offer" value="{{ offer_id }}">
+        <p><a href="{{ url_for('trade.offer', offer_id=offer_id) }}">募集 #{{ offer_id }}</a></p>
+      {% else %}
+        <label>種類<select name="kind">
+          {% for key in ('general','privacy') %}<option value="{{ key }}" {% if kind == key %}selected{% endif %}>{{ kinds[key] }}</option>{% endfor %}
+        </select></label>
+      {% endif %}
+      {% if not session.get('discord_id') or not offer_id %}
+        <label>返信用メールアドレス{% if session.get('discord_id') %}（任意）{% endif %}
+          <input type="email" name="email" maxlength="254" value="{{ email|default('') }}" {% if not session.get('discord_id') %}required{% endif %}>
+        </label>
+      {% endif %}
+      <label>内容<textarea name="body" rows="5" minlength="5" maxlength="1800" required>{{ body|default('') }}</textarea></label>
+      <p class="hint">パスワードや認証コードは入力しないでください。<a href="{{ url_for('support.privacy') }}">個人情報の取り扱い</a></p>
+      <button type="submit">運営に送る</button>
+    </form>
+  </section>
+  {% if history %}
+  <section class="panel">
+    <h2>送ったお問い合わせ</h2>
+    {% for entry in history %}
+      <p><strong>#{{ entry.id }} {{ kinds[entry.kind] }}</strong> · {{ '対応済み' if entry.status == 'closed' else '受付中' }}</p>
+      {% if entry.reply %}<p class="support-copy">{{ entry.reply }}</p>{% endif %}
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endblock %}

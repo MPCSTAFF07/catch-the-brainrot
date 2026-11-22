@@ -142,6 +142,12 @@ systemctl list-timers catch-the-brainrot-update.timer
 sudo journalctl -u catch-the-brainrot-update.service -n 30 --no-pager
 ```
 
+## 利用ルール・個人情報・通報
+
+ログイン前から `/terms`、`/privacy`、`/support` を開けます。Discord Developer PortalにプライバシーポリシーURLを登録する場合は `https://catch-the-brainrot.eggkingdom.com/privacy` を使います。
+
+運営は管理メニューの「お問い合わせ・通報管理」で受付内容を確認します。ログイン利用者にはサイト内で返信できます。ログインせず送信された場合は、入力された返信先へ運営が回答します。個人情報の開示・訂正・削除の依頼は、本人確認後に運営が対応してください。問い合わせデータは `support.sqlite3` に保存されます。
+
 ## 更新とログ
 
 初回起動手順の最初のコマンドを再実行すると、ソースと依存関係を更新しサービスを再起動します。Discordログイン設定、Botトークン、リアクションロールと交換募集のSQLiteデータはEC2内に保存されます。復旧用バックアップを取る場合は、EC2内で所有者だけが読み取れる場所に保管してください。
