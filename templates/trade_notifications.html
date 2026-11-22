@@ -4,6 +4,28 @@
 {% block content %}
 <h1>通知</h1>
 <div class="notification-layout">
+  <section class="trade-compose notification-list" aria-label="通知一覧">
+    <h2>すべての通知</h2>
+    {% for entry in rows %}
+      <form method="post" action="{{ url_for('trade.open_notification', notification_id=entry.id) }}">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <button type="submit" class="notification-row{% if not entry.read_at %} is-unread{% endif %}" {% if selected and selected.id == entry.id %}aria-current="true"{% endif %}>
+          <span>{{ '提案が届きました' if entry.kind == 'proposal' else '欲しいキャラの出品' }}</span>
+          <strong>{{ entry.offered or '募集' }}</strong>
+          {% if not entry.read_at %}<small>未読</small>{% endif %}
+        </button>
+      </form>
+    {% else %}
+      <p class="hint">まだ通知はありません。</p>
+    {% endfor %}
+    {% if page > 1 or has_next %}
+      <nav class="trade-pages" aria-label="ページ移動">
+        {% if page > 1 %}<a href="{{ url_for('trade.notifications', page=page-1) }}">前のページ</a>{% endif %}
+        {% if has_next %}<a href="{{ url_for('trade.notifications', page=page+1) }}">次のページ</a>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
   <section class="trade-compose notification-content" aria-label="通知の内容">
     {% if selected %}
       <p class="notification-type">{{ '提案' if selected.kind == 'proposal' else '欲しいキャラ' }}</p>
@@ -31,29 +53,7 @@
       </form>
       {% endif %}
     {% else %}
-      <p class="hint">右の一覧から通知を選んでください。</p>
-    {% endif %}
-  </section>
-  <section class="trade-compose notification-list" aria-label="通知一覧">
-    <h2>すべての通知</h2>
-    {% for entry in rows %}
-      <form method="post" action="{{ url_for('trade.open_notification', notification_id=entry.id) }}">
-        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
-        <input type="hidden" name="page" value="{{ page }}">
-        <button type="submit" class="notification-row{% if not entry.read_at %} is-unread{% endif %}" {% if selected and selected.id == entry.id %}aria-current="true"{% endif %}>
-          <span>{{ '提案が届きました' if entry.kind == 'proposal' else '欲しいキャラの出品' }}</span>
-          <strong>{{ entry.offered or '募集' }}</strong>
-          {% if not entry.read_at %}<small>未読</small>{% endif %}
-        </button>
-      </form>
-    {% else %}
-      <p class="hint">まだ通知はありません。</p>
-    {% endfor %}
-    {% if page > 1 or has_next %}
-      <nav class="trade-pages" aria-label="ページ移動">
-        {% if page > 1 %}<a href="{{ url_for('trade.notifications', page=page-1) }}">前のページ</a>{% endif %}
-        {% if has_next %}<a href="{{ url_for('trade.notifications', page=page+1) }}">次のページ</a>{% endif %}
-      </nav>
+      <p class="hint">左の一覧から通知を選んでください。</p>
     {% endif %}
   </section>
 </div>

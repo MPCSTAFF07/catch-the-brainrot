@@ -66,8 +66,6 @@ def register_notifications(board, database):
                 ).fetchone()
                 if selected is None:
                     abort(404)
-            elif rows:
-                selected = rows[0]
             proposal = None
             if selected and selected["kind"] == "proposal" and selected["proposal_status"] in {"pending", "accepted"}:
                 proposal = db.execute(
