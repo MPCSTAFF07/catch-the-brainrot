@@ -289,3 +289,5 @@ td a { white-space: nowrap; }
 .policy-copy h2:not(:first-child) { margin-top: 24px; }
 .support-copy { overflow-wrap: anywhere; white-space: pre-wrap; }
 .support-form textarea { width: 100%; padding: 8px; font: inherit; }
+
+.site-footer-rules { display: grid; justify-items: start; gap: 4px; }
