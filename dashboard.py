@@ -25,6 +25,7 @@ from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
 from trades import create_trade_board
+from trade_profiles import remember_profile
 
 ADMIN_FILE = ROOT / ".web-admin.json"
 BOT_FILE = ROOT / ".web-bot.json"
@@ -351,6 +352,7 @@ def create_app(manager, admin):
         session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
         session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
+        remember_profile(TRADE_DB, user_id, session["discord_name"])
         return redirect(url_for("trade.index"), code=303)
 
     @app.get("/admins")

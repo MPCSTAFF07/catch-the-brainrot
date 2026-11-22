@@ -183,3 +183,33 @@
   pointer-events: none;
 }
 [data-trade-pane][hidden] { display: none; }
+
+.trade-page .header-profile { border-color: var(--trade-border); color: #e9e1f0; }
+.trade-page .header-profile:hover, .trade-page .header-profile[aria-current] {
+  background: #393241;
+  color: var(--trade-accent);
+}
+.profile-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; margin-top: 0; }
+.profile-heading h1 { margin-bottom: 8px; }
+.profile-follow { align-self: start; }
+.profile-stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.profile-stats > * { min-width: 0; display: grid; gap: 4px; padding: 9px; background: #392c46; color: var(--trade-muted); font-size: 13px; text-decoration: none; overflow-wrap: anywhere; }
+.profile-stats strong { color: var(--trade-accent); font-size: 22px; }
+.profile-stats a:hover { background: #493755; }
+.profile-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.profile-wish-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.profile-wishes, .profile-results { margin: 12px 0 0; padding: 0; list-style: none; }
+.profile-wishes { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-wishes li { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; background: #493755; }
+.profile-wishes li > span { overflow-wrap: anywhere; }
+.trade-page main .profile-wishes button[type="submit"] { padding: 0; min-width: 32px; min-height: 32px; clip-path: none; background: transparent; color: var(--trade-pink); }
+.profile-results li { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--trade-border); overflow-wrap: anywhere; }
+.profile-results li:last-child { border-bottom: 0; }
+.profile-empty { color: var(--trade-muted); font-size: 14px; }
+.profile-wishes li.profile-empty { background: transparent; padding: 0; }
+.profile-results li.profile-empty { display: block; padding: 0; }
+@media (max-width: 650px) {
+  .profile-panels { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .profile-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-heading { gap: 12px; }
+}

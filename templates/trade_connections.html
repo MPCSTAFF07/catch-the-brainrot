@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ 'フォロー中' if following else 'フォロワー' }}{% endblock %}
+{% block content %}
+  <a class="trade-back" href="{{ url_for('trade.profile', user_id=uid) }}">← {{ name }}のプロフィール</a>
+  <section class="trade-compose">
+    <h1>{{ 'フォロー中' if following else 'フォロワー' }}</h1>
+    <nav class="trade-tabs" aria-label="フォロー一覧">
+      <a href="{{ url_for('trade.connections', user_id=uid) }}" {% if not following %}aria-current="page"{% endif %}>フォロワー</a>
+      <a href="{{ url_for('trade.connections', user_id=uid, view='following') }}" {% if following %}aria-current="page"{% endif %}>フォロー中</a>
+    </nav>
+    <div class="deal-list">
+      {% for person in people %}
+        <a href="{{ url_for('trade.profile', user_id=person.user_id) }}"><strong>{{ person.display_name }}</strong><span aria-hidden="true">↗</span></a>
+      {% else %}
+        <p class="profile-empty">まだ誰もいません。</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% if page > 1 or has_next %}
+    <nav class="trade-pages" aria-label="ページ移動">
+      {% if page > 1 %}<a href="{{ url_for('trade.connections', user_id=uid, view='following' if following else none, page=page-1) }}">前のページ</a>{% endif %}
+      {% if has_next %}<a href="{{ url_for('trade.connections', user_id=uid, view='following' if following else none, page=page+1) }}">次のページ</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

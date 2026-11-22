@@ -10,7 +10,7 @@
     <h1>{{ item.offered }}</h1>
     <div class="offer-items">
       <div><span>欲しいもの</span><strong>{{ item.wanted }}</strong></div>
-      <div><span>取引相手</span><strong>{{ item.buyer_name if own else item.owner_name }}</strong></div>
+      <div><span>取引相手</span><strong><a href="{{ url_for('trade.profile', user_id=item.buyer_id if own else item.owner_id) }}">{{ item.buyer_name if own else item.owner_name }}</a></strong></div>
     </div>
     {% if item.status == 'accepted' %}
       <p class="offer-note">ゲーム内で交換が済んだら「交換完了を確認」を押してください。両方が確認すると取引が完了します。</p>

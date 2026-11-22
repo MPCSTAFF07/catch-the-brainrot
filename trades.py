@@ -3,6 +3,8 @@ import sqlite3
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 
+from trade_profiles import register_profiles, save_profile
+
 PAGE_SIZE = 24
 CATEGORIES = {"brainrot": "ブレインロット", "item": "アイテム", "bundle": "セット", "other": "その他"}
 DEAL_STATUS = {
@@ -114,7 +116,8 @@ def create_trade_board(db_path):
         with database() as db:
             rows = db.execute(
                 f"""SELECT o.id, o.owner_name, o.offered, o.wanted, o.category, o.closed_at,
-                    EXISTS(SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted') AS in_progress
+                    EXISTS(SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted') AS in_progress,
+                    (SELECT COUNT(*) FROM trade_likes l WHERE l.offer_id=o.id) AS likes
                     FROM trade_offers o WHERE {' AND '.join(criteria)}
                     ORDER BY o.id {order} LIMIT ? OFFSET ?""",
                 (*values, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE),
@@ -140,6 +143,7 @@ def create_trade_board(db_path):
             flash("出すもの、欲しいもの、カテゴリを確認してください。", "error")
             return redirect(url_for("trade.new"), code=303)
         with database(write=True) as db:
+            save_profile(db, session["discord_id"], session["discord_name"])
             result = db.execute(
                 """INSERT INTO trade_offers
                    (owner_id, owner_name, offered, wanted, note, category, created_at)
@@ -154,6 +158,10 @@ def create_trade_board(db_path):
         with database() as db:
             item = offer_by_id(db, offer_id)
             own = item["owner_id"] == session["discord_id"]
+            likes = db.execute(
+                "SELECT COUNT(*) AS total, COUNT(CASE WHEN user_id=? THEN 1 END) AS mine FROM trade_likes WHERE offer_id=?",
+                (session["discord_id"], offer_id),
+            ).fetchone()
             if own:
                 deals = db.execute("SELECT * FROM trade_deals WHERE offer_id=? ORDER BY id DESC", (offer_id,)).fetchall()
             else:
@@ -165,7 +173,7 @@ def create_trade_board(db_path):
                          any(deal["status"] == "pending" for deal in deals))
         return render_template(
             "trade_offer.html", item=item, own=own, deals=deals, can_apply=can_apply,
-            categories=CATEGORIES, statuses=DEAL_STATUS, active="trade",
+            categories=CATEGORIES, statuses=DEAL_STATUS, likes=likes, active="trade",
         )
 
     @board.post("/trade/<int:offer_id>/close")
@@ -198,6 +206,7 @@ def create_trade_board(db_path):
             ).fetchone()
             if previous:
                 return redirect(url_for("trade.deal", deal_id=previous["id"]), code=303)
+            save_profile(db, user_id, session["discord_name"])
             deal_id = db.execute(
                 "INSERT INTO trade_deals(offer_id, buyer_id, buyer_name) VALUES (?, ?, ?)",
                 (offer_id, user_id, session["discord_name"]),
@@ -287,4 +296,5 @@ def create_trade_board(db_path):
                 abort(409)
         return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
 
+    register_profiles(board, database)
     return board

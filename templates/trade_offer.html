@@ -10,9 +10,15 @@
     <h1>{{ item.offered }}</h1>
     <div class="offer-items">
       <div><span>欲しいもの</span><strong>{{ item.wanted }}</strong></div>
-      <div><span>出品者</span><strong>{{ item.owner_name }}</strong></div>
+      <div><span>出品者</span><strong><a href="{{ url_for('trade.profile', user_id=item.owner_id) }}">{{ item.owner_name }}</a></strong></div>
     </div>
     {% if item.note %}<p class="offer-note">{{ item.note }}</p>{% endif %}
+    {% if not own %}
+    <form class="trade-actions" action="{{ url_for('trade.like_offer', offer_id=item.id) }}" method="post">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button class="trade-secondary" name="action" value="{{ 'remove' if likes.mine else 'add' }}" type="submit">{{ '♥ いいね済み' if likes.mine else '♡ いいね' }} · {{ likes.total }}</button>
+    </form>
+    {% else %}<p class="offer-note">♥ いいね {{ likes.total }}</p>{% endif %}
   </section>
 
   {% if can_apply %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ 'プロフィール' if own else name }}{% endblock %}
+{% block content %}
+  <header class="trade-compose profile-heading">
+    <div>
+      <h1>{{ name }}</h1>
+      {% if own %}<a class="trade-back" href="{{ url_for('trade.index', mine=1) }}">投稿済みの募集を管理</a>{% endif %}
+    </div>
+    {% if not own %}
+    <form class="profile-follow" method="post" action="{{ url_for('trade.follow', user_id=uid) }}">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button type="submit" name="action" value="{{ 'remove' if stats.followed else 'add' }}" {% if stats.followed %}class="trade-secondary"{% endif %}>
+        {{ 'フォロー解除' if stats.followed else '＋ フォロー' }}
+      </button>
+    </form>
+    {% endif %}
+    <div class="profile-stats">
+      <div><strong>{{ stats.completed }}</strong><span>交換完了</span></div>
+      <a href="{{ url_for('trade.connections', user_id=uid) }}"><strong>{{ stats.followers }}</strong><span>フォロワー</span></a>
+      <a href="{{ url_for('trade.connections', user_id=uid, view='following') }}"><strong>{{ stats.following }}</strong><span>フォロー中</span></a>
+      <div><strong>{{ stats.likes }}</strong><span>もらったいいね</span></div>
+    </div>
+  </header>
+
+  <div class="profile-panels">
+    <section id="wishes" class="trade-compose profile-panel">
+      <h2>欲しいキャラ</h2>
+      {% if own %}
+        <form class="profile-wish-form" method="post" action="{{ url_for('trade.add_wish') }}">
+          <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+          <input name="character_name" maxlength="100" required aria-label="欲しいキャラ名" placeholder="欲しいキャラ名">
+          <button type="submit">追加</button>
+        </form>
+        <p class="offer-note">登録したキャラは他のユーザーにも表示されます。</p>
+      {% endif %}
+      <ul class="profile-wishes">
+      {% for wish in wishes %}
+        <li>
+          <span>{{ wish.character_name }}</span>
+          {% if own %}
+          <form method="post" action="{{ url_for('trade.remove_wish', wish_id=wish.id) }}">
+            <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+            <button type="submit" aria-label="{{ wish.character_name }}を削除">×</button>
+          </form>
+          {% endif %}
+        </li>
+      {% else %}
+        <li class="profile-empty">登録されたキャラはありません。</li>
+      {% endfor %}
+      </ul>
+    </section>
+
+    <section class="trade-compose profile-panel">
+      <h2>交換実績</h2>
+      <ul class="profile-results">
+      {% for exchange in recent %}
+        <li><span>{{ exchange.given }}</span><span aria-label="と交換">⇄</span><span>{{ exchange.received }}</span></li>
+      {% else %}
+        <li class="profile-empty">完了した交換はまだありません。</li>
+      {% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <section class="trade-compose profile-panel">
+    <h2>募集中の交換</h2>
+    <div class="deal-list">
+      {% for offer in offers %}
+        <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
+      {% else %}
+        <p class="profile-empty">募集中の交換はありません。</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if own %}
+  <section class="trade-compose profile-panel">
+    <h2>いいねした募集</h2>
+    <div class="deal-list">
+      {% for offer in liked %}
+        <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
+      {% else %}
+        <p class="profile-empty">まだいいねした募集はありません。</p>
+      {% endfor %}
+    </div>
+  </section>
+  <form class="trade-actions" method="post" action="{{ url_for('logout') }}">
+    <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+    <button class="trade-secondary" type="submit">ログアウト</button>
+  </form>
+  {% endif %}
+{% endblock %}
