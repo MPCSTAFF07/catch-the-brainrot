@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   {% if active in ("trade", "trade_inbox") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css') }}">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='motion.css') }}">
+  {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js') }}" defer></script>{% endif %}
 </head>
 <body class="{% if session.get('discord_id') %}signed-in{% if active in ('trade', 'trade_inbox') %} trade-page{% endif %}{% else %}signed-out{% endif %}">
 {% if session.get('discord_id') %}

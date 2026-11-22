@@ -3,15 +3,15 @@
     --entry-ease: cubic-bezier(0.22, 0.8, 0.36, 1);
   }
 
-  .site-menu[open] .site-nav {
-    animation: menu-enter 320ms var(--entry-ease) backwards;
+  .site-menu[open]:not([data-animated]) .site-nav {
+    animation: menu-enter 470ms var(--entry-ease) backwards;
   }
 
-  .site-menu[open] .site-nav-column {
+  .site-menu[open]:not([data-animated]) .site-nav-column {
     animation: menu-links-enter 250ms var(--entry-ease) 45ms backwards;
   }
 
-  .site-menu[open] .site-nav-column:nth-child(2) {
+  .site-menu[open]:not([data-animated]) .site-nav-column:nth-child(2) {
     animation-delay: 85ms;
   }
 
