@@ -2,6 +2,7 @@
 {% from "trade_person.html" import person %}
 {% block title %}{{ "交換に出す" if mode == "post" else "交換を探す" }}{% endblock %}
 {% block content %}
+  <script src="{{ url_for('static', filename='trade-photo.js') }}" defer></script>
   <script src="{{ url_for('static', filename='trade-switch.js', v='trade-split-2') }}" defer></script>
   {% set filters = dict(q=query or none, category=category or none, sort=sort if sort != 'new' else none, mine=1 if mine else none, page=page if page > 1 else none) %}
   <nav class="trade-switch" aria-label="交換メニュー">
@@ -43,7 +44,10 @@
           {% if item.closed_at %}<span>締切済み</span>{% endif %}
         </div>
         <div class="offer-items">
-          <div><span>出す</span><strong>{{ item.offered }}</strong></div>
+          <div{% if item.has_photo %} class="offer-item-photo"{% endif %}>
+            <span>出す</span><strong>{{ item.offered }}</strong>
+            {% if item.has_photo %}<img class="offer-thumbnail" src="{{ url_for('trade.offer_photo', offer_id=item.id, size='thumb') }}" alt="" width="42" height="42" loading="lazy">{% endif %}
+          </div>
           <div><span>欲しい</span><strong>{{ item.wanted }}</strong></div>
         </div>
         <footer>{{ person(item.owner_id, item.owner_display_name, item.owner_avatar, item.owner_default_avatar) }}<span>♡ {{ item.likes }} <span aria-hidden="true">↗</span></span></footer>

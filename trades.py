@@ -2,8 +2,9 @@ from contextlib import closing, contextmanager
 import sqlite3
 import time
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, session, url_for
 
+from offer_photos import MAX_PHOTO_BYTES, prepare_offer_photo
 from trade_profiles import register_profiles, save_profile
 
 PAGE_SIZE = 24
@@ -34,6 +35,12 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 offered TEXT NOT NULL, wanted TEXT NOT NULL, note TEXT NOT NULL,
                 category TEXT NOT NULL DEFAULT 'other',
                 created_at TEXT NOT NULL, closed_at TEXT
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS trade_offer_photos (
+                offer_id INTEGER PRIMARY KEY REFERENCES trade_offers(id) ON DELETE CASCADE,
+                photo BLOB NOT NULL, thumbnail BLOB NOT NULL
             )
         """)
         if not any(row["name"] == "category" for row in db.execute("PRAGMA table_info(trade_offers)")):
@@ -79,6 +86,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
         row = db.execute(
             """SELECT o.*, p.avatar_hash AS owner_avatar, p.default_avatar_index AS owner_default_avatar,
                COALESCE(p.display_name, o.owner_name) AS owner_display_name,
+               EXISTS(SELECT 1 FROM trade_offer_photos i WHERE i.offer_id=o.id) AS has_photo,
                EXISTS(SELECT 1 FROM trade_deals d
                       WHERE d.offer_id=o.id AND d.status='accepted') AS in_progress
                FROM trade_offers o LEFT JOIN trade_profiles p ON p.user_id=o.owner_id WHERE o.id=?""", (offer_id,),
@@ -130,6 +138,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 f"""SELECT o.id, o.owner_id, COALESCE(p.display_name,o.owner_name) AS owner_display_name,
                     p.avatar_hash AS owner_avatar, p.default_avatar_index AS owner_default_avatar,
                     o.offered, o.wanted, o.category, o.closed_at,
+                    EXISTS(SELECT 1 FROM trade_offer_photos i WHERE i.offer_id=o.id) AS has_photo,
                     EXISTS(SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted') AS in_progress,
                     (SELECT COUNT(*) FROM trade_likes l WHERE l.offer_id=o.id) AS likes
                     FROM trade_offers o LEFT JOIN trade_profiles p ON p.user_id=o.owner_id
@@ -140,7 +149,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
         return render_template(
             "trade.html", offers=rows[:PAGE_SIZE], query=query, mine=mine,
             page=page, has_next=len(rows) > PAGE_SIZE, sort=sort,
-            categories=CATEGORIES, category=category, active="trade",
+            categories=CATEGORIES, category=category, active="trade", photo_limit=MAX_PHOTO_BYTES,
             mode="post" if request.args.get("mode") == "post" else "search",
         )
 
@@ -157,6 +166,11 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
         if not offered or not wanted or category not in CATEGORIES:
             flash("出すもの、欲しいもの、カテゴリを確認してください。", "error")
             return redirect(url_for("trade.new"), code=303)
+        try:
+            photo = prepare_offer_photo(request.files.get("photo"))
+        except ValueError as error:
+            flash(str(error), "error")
+            return redirect(url_for("trade.new"), code=303)
         with database(write=True) as db:
             save_profile(db, session["discord_id"], session["discord_name"])
             result = db.execute(
@@ -165,8 +179,21 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
                 (session["discord_id"], session["discord_name"], offered, wanted, note, category),
             )
+            if photo:
+                db.execute("INSERT INTO trade_offer_photos VALUES (?, ?, ?)", (result.lastrowid, *photo))
         flash("交換募集を投稿しました。", "success")
         return redirect(url_for("trade.offer", offer_id=result.lastrowid), code=303)
+
+    @board.get("/trade/<int:offer_id>/photo")
+    def offer_photo(offer_id):
+        if offer_id > 2**63 - 1:
+            abort(404)
+        column = "thumbnail" if request.args.get("size") == "thumb" else "photo"
+        with database() as db:
+            row = db.execute(f"SELECT {column} FROM trade_offer_photos WHERE offer_id=?", (offer_id,)).fetchone()
+        if row is None:
+            abort(404)
+        return Response(row[0], mimetype="image/webp")
 
     @board.get("/trade/<int:offer_id>")
     def offer(offer_id):

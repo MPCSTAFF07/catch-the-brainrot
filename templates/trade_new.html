@@ -1,6 +1,6 @@
   <div class="trade-compose">
     <h2>交換に出す</h2>
-    <form action="{{ url_for('trade.post') }}" method="post" class="form">
+    <form action="{{ url_for('trade.post') }}" method="post" enctype="multipart/form-data" class="form" id="trade-post-form">
       <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
       <label>カテゴリ
         <select name="category" required>
@@ -12,6 +12,10 @@
         <label>欲しいもの<input name="wanted" maxlength="100" required></label>
       </div>
       <label>交換条件（任意）<textarea name="note" rows="4" maxlength="600"></textarea></label>
+      <label>写真（任意）
+        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" data-photo-limit="{{ photo_limit }}">
+      </label>
+      <p class="hint" id="trade-photo-status" role="status">JPEG・PNG・WebPを1枚添付できます。</p>
       <button type="submit">募集を投稿</button>
     </form>
   </div>

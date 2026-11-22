@@ -353,3 +353,23 @@ a.trade-person:hover { text-decoration: underline; }
 .trade-proposal { margin-top: 16px; padding: 12px; background: #392c46; border-left: 2px solid var(--trade-accent); }
 .trade-proposal p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .deal-list .trade-person { margin-block-start: 4px; }
+
+.offer-items .offer-item-photo {
+  --offer-thumb-size: clamp(30px, 5vw, 42px);
+  position: relative;
+  padding-inline-end: calc(var(--offer-thumb-size) + 6px);
+}
+.offer-thumbnail {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 0;
+  width: var(--offer-thumb-size);
+  height: var(--offer-thumb-size);
+  border-radius: 4px;
+  object-fit: cover;
+}
+.offer-detail-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.offer-detail-title h1 { margin: 0; min-width: 0; }
+.offer-detail-photo { width: 116px; max-width: 40%; height: 88px; object-fit: contain; border-radius: 4px; background: #211b2a; }
+.trade-page input[type="file"] { min-height: 42px; }
+.offer-item-photo strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

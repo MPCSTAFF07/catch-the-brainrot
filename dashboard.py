@@ -24,6 +24,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
+from offer_photos import MAX_OFFER_REQUEST_BYTES
 from trades import create_trade_board
 from site_support import create_support
 from trade_profiles import remember_profile
@@ -350,6 +351,8 @@ def create_app(manager, admin):
         if "csrf" not in session:
             session["csrf"] = secrets.token_urlsafe(32)
         if request.method == "POST":
+            if request.endpoint == "trade.post":
+                request.max_content_length = MAX_OFFER_REQUEST_BYTES
             provided = request.form.get("csrf", "")
             if not hmac.compare_digest(session["csrf"].encode(), provided.encode()):
                 abort(400)
