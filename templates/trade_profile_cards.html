@@ -1,6 +1,9 @@
 {% macro profile_offer(offer) %}
   <a class="profile-offer" href="{{ url_for('trade.offer', offer_id=offer.id) }}">
-    <span><small>出す</small><strong>{{ offer.offered }}</strong></span>
+    <span{% if offer.has_photo %} class="offer-item-photo"{% endif %}>
+      <small>出す</small><strong>{{ offer.offered }}</strong>
+      {% if offer.has_photo %}<img class="offer-thumbnail" src="{{ url_for('trade.offer_photo', offer_id=offer.id, size='thumb') }}" alt="" width="42" height="42" loading="lazy">{% endif %}
+    </span>
     <span><small>欲しい</small><strong>{{ offer.wanted }}</strong></span>
   </a>
 {% endmacro %}

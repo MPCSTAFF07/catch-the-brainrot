@@ -222,7 +222,9 @@ def register_profiles(board, database, fetch_profile_images=None):
                    WHERE l.user_id=? ORDER BY l.rowid DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
             ).fetchall()
         return db.execute(
-            """SELECT o.id, o.offered, o.wanted FROM trade_offers o
+            """SELECT o.id, o.offered, o.wanted,
+                      EXISTS(SELECT 1 FROM trade_offer_photos i WHERE i.offer_id=o.id) AS has_photo
+               FROM trade_offers o
                WHERE o.owner_id=? AND o.closed_at IS NULL ORDER BY o.id DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
         ).fetchall()
 

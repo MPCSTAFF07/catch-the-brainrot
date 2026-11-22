@@ -354,7 +354,7 @@ a.trade-person:hover { text-decoration: underline; }
 .trade-proposal p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .deal-list .trade-person { margin-block-start: 4px; }
 
-.offer-items .offer-item-photo {
+.offer-item-photo {
   --offer-thumb-size: clamp(30px, 5vw, 42px);
   position: relative;
   padding-inline-end: calc(var(--offer-thumb-size) + 6px);
