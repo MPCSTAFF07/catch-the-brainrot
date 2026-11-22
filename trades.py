@@ -108,8 +108,8 @@ def create_trade_board(db_path):
             criteria.append("o.category = ?")
             values.append(category)
         if query:
-            criteria.append("(instr(lower(o.offered), lower(?)) > 0 OR instr(lower(o.wanted), lower(?)) > 0)")
-            values.extend([query, query])
+            criteria.append("instr(lower(o.wanted), lower(?)) > 0")
+            values.append(query)
         order = "ASC" if sort == "old" else "DESC"
         with database() as db:
             rows = db.execute(

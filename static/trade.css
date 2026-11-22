@@ -135,12 +135,10 @@
     url("brainrot-trade.webp") center / cover no-repeat;
   color: #eee9f4;
   filter: grayscale(1) brightness(0.82);
-  transition: filter 180ms ease;
+  box-shadow: inset 0 -4px transparent;
+  transition: filter 340ms ease, box-shadow 340ms ease;
 }
 .trade-switch .trade-mode[aria-current] {
-  background:
-    linear-gradient(0deg, rgb(27 12 43 / 84%), transparent 78%),
-    url("brainrot-trade.webp") center / cover no-repeat;
   filter: none;
   box-shadow: inset 0 -4px #f2abd2;
 }
@@ -176,3 +174,12 @@
 @media (prefers-reduced-motion: reduce) {
   .trade-switch .trade-mode { transition: none; }
 }
+
+.trade-panes { position: relative; display: flow-root; }
+.trade-panes[data-switching] { overflow: hidden; }
+.trade-panes > [data-outgoing] {
+  position: absolute;
+  inset: 0 0 auto;
+  pointer-events: none;
+}
+[data-trade-pane][hidden] { display: none; }
