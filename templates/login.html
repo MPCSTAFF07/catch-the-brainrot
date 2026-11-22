@@ -1,8 +1,12 @@
 {% extends "base.html" %}
-{% block title %}ログイン{% endblock %}
+{% block title %}Discord Login{% endblock %}
 {% block content %}
-  <p class="eyebrow">Catch the Brainrot</p>
-  <h1>管理画面</h1>
-  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
-  <a class="button" href="{{ url_for('discord_login') }}">Discordでログイン</a>
+  <div class="login-card">
+    <div class="login-accent" aria-hidden="true"></div>
+    <section class="login-content" aria-labelledby="login-title">
+      <h1 id="login-title" lang="en">Discord Login</h1>
+      {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+      <a class="login-action" href="{{ url_for('discord_login') }}" lang="en">Login</a>
+    </section>
+  </div>
 {% endblock %}
