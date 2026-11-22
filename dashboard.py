@@ -179,16 +179,30 @@ class BotManager:
             bot = self.bot
             if bot is None or bot.is_closed():
                 return None
-            try:
-                user = await asyncio.wait_for(bot.fetch_user(int(form["user_id"])), timeout=4)
-            except (discord.DiscordException, asyncio.TimeoutError, OSError) as error:
-                LOG.info("Discordプロフィール画像を再取得できませんでした: %s", type(error).__name__)
+            user_id = int(form["user_id"])
+            guild = bot.get_guild(bot.guild_id)
+            calls = [asyncio.wait_for(bot.fetch_user(user_id), timeout=4)]
+            if guild is not None and not guild.unavailable:
+                calls.append(asyncio.wait_for(guild.fetch_member(user_id), timeout=4))
+            results = await asyncio.gather(*calls, return_exceptions=True)
+            user = results[0]
+            if isinstance(user, Exception):
+                LOG.info("Discordプロフィール画像を再取得できませんでした: %s", type(user).__name__)
                 return None
-            return {
+            images = {
                 "avatar": user.avatar.key if user.avatar else None,
                 "banner": user.banner.key if user.banner else None,
                 "discriminator": user.discriminator,
             }
+            if len(results) > 1:
+                member = results[1]
+                if isinstance(member, discord.NotFound):
+                    images["guild_banner"] = None
+                    images["guild_id"] = None
+                elif not isinstance(member, Exception):
+                    images["guild_banner"] = member.guild_banner.key if member.guild_banner else None
+                    images["guild_id"] = str(guild.id)
+            return images
 
         async with self.lock:
             if action == "save":

@@ -3,7 +3,9 @@
 {% block content %}
   <header class="profile-heading">
     <div class="profile-cover" aria-hidden="true">
-      {% if banner_hash %}
+      {% if guild_banner_hash and guild_banner_id %}
+        <img src="https://cdn.discordapp.com/guilds/{{ guild_banner_id }}/users/{{ uid }}/banners/{{ guild_banner_hash }}.webp?size=1024" alt="">
+      {% elif banner_hash %}
         <img src="https://cdn.discordapp.com/banners/{{ uid }}/{{ banner_hash }}.webp?size=1024" alt="">
       {% endif %}
     </div>
@@ -98,6 +100,11 @@
       {% endfor %}
     </div>
   </section>
+  <p class="offer-note">バナー：{{ 'ぶれろ鯖のDiscordプロフィール' if guild_banner_hash else ('Discordアカウント' if banner_hash else 'サイト既定の画像') }}</p>
+  <form class="trade-actions" method="post" action="{{ url_for('trade.refresh_profile_images') }}">
+    <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+    <button class="trade-secondary" type="submit">Discord画像を再取得</button>
+  </form>
   <form class="trade-actions" method="post" action="{{ url_for('logout') }}">
     <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
     <button class="trade-secondary" type="submit">ログアウト</button>

@@ -43,7 +43,9 @@ def register_profiles(board, database, fetch_profile_images=None):
             CREATE TABLE IF NOT EXISTS trade_profiles (
                 user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL,
                 avatar_hash TEXT, banner_hash TEXT, default_avatar_index INTEGER,
-                images_refresh_after INTEGER NOT NULL DEFAULT 0
+                images_refresh_after INTEGER NOT NULL DEFAULT 0,
+                images_last_attempt INTEGER NOT NULL DEFAULT 0,
+                guild_banner_hash TEXT, guild_banner_id TEXT
             )
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(trade_profiles)")}
@@ -55,6 +57,13 @@ def register_profiles(board, database, fetch_profile_images=None):
             db.execute("ALTER TABLE trade_profiles ADD COLUMN default_avatar_index INTEGER")
         if "images_refresh_after" not in columns:
             db.execute("ALTER TABLE trade_profiles ADD COLUMN images_refresh_after INTEGER NOT NULL DEFAULT 0")
+        if "images_last_attempt" not in columns:
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN images_last_attempt INTEGER NOT NULL DEFAULT 0")
+        if "guild_banner_hash" not in columns:
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN guild_banner_hash TEXT")
+            db.execute("UPDATE trade_profiles SET images_refresh_after=0")
+        if "guild_banner_id" not in columns:
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN guild_banner_id TEXT")
         db.execute("""
             INSERT OR IGNORE INTO trade_profiles(user_id, display_name)
             SELECT owner_id, owner_name FROM trade_offers ORDER BY id DESC
@@ -93,30 +102,56 @@ def register_profiles(board, database, fetch_profile_images=None):
     def save_current_user(db):
         save_profile(db, session["discord_id"], session.get("discord_name") or session["discord_id"])
 
-    def refresh_images(user_id):
+    def refresh_images(user_id, *, force=False):
         if fetch_profile_images is None:
-            return
+            return None
         now = int(time.time())
         with database() as db:
-            row = db.execute("SELECT images_refresh_after FROM trade_profiles WHERE user_id=?", (user_id,)).fetchone()
-        if row is None or row["images_refresh_after"] > now:
-            return
+            row = db.execute(
+                "SELECT images_refresh_after FROM trade_profiles WHERE user_id=?", (user_id,)
+            ).fetchone()
+        if row is None or (not force and row["images_refresh_after"] > now):
+            return None
         with database(write=True) as db:
             started = db.execute(
-                """UPDATE trade_profiles SET images_refresh_after=? WHERE user_id=? AND images_refresh_after<=?""",
-                (now + 60, user_id, now),
+                """UPDATE trade_profiles SET images_refresh_after=?, images_last_attempt=?
+                   WHERE user_id=? AND images_last_attempt<=? AND (? OR images_refresh_after<=?)""",
+                (now + 60, now, user_id, now - 10, force, now),
             ).rowcount
         if not started:
-            return
+            return None
         images = fetch_profile_images(user_id)
         if not isinstance(images, dict):
-            return
+            return False
         with database(write=True) as db:
             save_discord_images(db, user_id, images.get("avatar"), images.get("banner"), images.get("discriminator"))
+            if "guild_banner" in images:
+                banner, guild_id = images.get("guild_banner"), images.get("guild_id")
+                if not isinstance(banner, str) or not IMAGE_HASH.fullmatch(banner) or not isinstance(guild_id, str) or not USER_ID.fullmatch(guild_id):
+                    banner = guild_id = None
+                db.execute(
+                    "UPDATE trade_profiles SET guild_banner_hash=?, guild_banner_id=? WHERE user_id=?",
+                    (banner, guild_id, user_id),
+                )
             db.execute(
                 "UPDATE trade_profiles SET images_refresh_after=? WHERE user_id=?",
                 (int(time.time()) + 900, user_id),
             )
+        return True
+
+    @board.post("/profile/refresh-images")
+    def refresh_profile_images():
+        user_id = session["discord_id"]
+        with database(write=True) as db:
+            save_current_user(db)
+        updated = refresh_images(user_id, force=True)
+        if updated is True:
+            flash("Discordのプロフィール画像を再取得しました。", "success")
+        elif updated is False:
+            flash("Discordから画像を取得できませんでした。Botの接続を確認してください。", "error")
+        else:
+            flash("画像を確認中です。少し待ってからもう一度お試しください。", "error")
+        return redirect(url_for("trade.my_profile"), code=303)
 
     @board.get("/profile")
     def my_profile():
@@ -138,7 +173,8 @@ def register_profiles(board, database, fetch_profile_images=None):
         refresh_images(user_id)
         with database() as db:
             user = db.execute(
-                "SELECT display_name, avatar_hash, banner_hash, default_avatar_index FROM trade_profiles WHERE user_id=?", (user_id,)
+                """SELECT display_name, avatar_hash, banner_hash, default_avatar_index, guild_banner_hash, guild_banner_id
+                   FROM trade_profiles WHERE user_id=?""", (user_id,)
             ).fetchone()
             if user is None:
                 abort(404)
@@ -179,6 +215,7 @@ def register_profiles(board, database, fetch_profile_images=None):
         return render_template(
             "trade_profile.html", uid=user_id, name=user["display_name"], own=own, stats=stats,
             avatar_hash=user["avatar_hash"], banner_hash=user["banner_hash"], default_avatar_index=default_index,
+            guild_banner_hash=user["guild_banner_hash"], guild_banner_id=user["guild_banner_id"],
             wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
         )
 
