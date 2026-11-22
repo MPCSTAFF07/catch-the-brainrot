@@ -6,16 +6,13 @@
   <a class="trade-back" href="{{ url_for('trade.profile', user_id=uid) }}">← プロフィールに戻る</a>
   <section class="trade-compose profile-panel">
     <h1>{{ heading }}</h1>
-    {% set split = section == 'active' and page == 1 and offers %}
-    {% if split %}
+    {% if section == 'active' and offers %}
     <div class="profile-offer-grid">
-      {% for offer in offers[:3] %}{{ profile_offer(offer) }}{% endfor %}
+      {% for offer in offers %}{{ profile_offer(offer) }}{% endfor %}
     </div>
-    {% endif %}
-    {% set rows = offers[3:] if split else offers %}
-    {% if rows or not offers %}
+    {% else %}
     <div class="deal-list">
-      {% for offer in rows %}
+      {% for offer in offers %}
         <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
       {% else %}
         <p class="profile-empty">募集はありません。</p>
