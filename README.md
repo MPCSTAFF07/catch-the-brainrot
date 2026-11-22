@@ -110,6 +110,30 @@ HTTPS発行済みなら、Nginxのサイト設定をテンプレートで上書�
 )
 ```
 
+## EC2の自動更新
+
+初回だけ、次のコマンドで自動更新を有効にします。EC2が約1分おきにGitHubの `main` を確認し、新しいコミットがあるときだけ取り込んでサービスを再起動します。依存ファイルに変更がなければ、初回以降は依存関係を入れ直しません。
+
+```bash
+(
+  set -e
+  cd "$HOME/catch-the-brainrot"
+  git pull --ff-only
+  sudo install -m 755 deploy/auto-update.sh /usr/local/sbin/catch-the-brainrot-update
+  sudo install -m 644 deploy/catch-the-brainrot-update.{service,timer} /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now catch-the-brainrot-update.timer
+  sudo systemctl start catch-the-brainrot-update.service
+)
+```
+
+EC2内の未コミットの変更やGitHubと分岐した履歴は上書きしません。Botトークン、管理者、募集・取引データはEC2内に残ります。Nginx・DNS・systemdの設定を変更する更新は、その設定の反映手順を別途実行してください。自動更新の仕組み自体を変更した場合も、上のインストール手順を再実行します。
+
+```bash
+systemctl list-timers catch-the-brainrot-update.timer
+sudo journalctl -u catch-the-brainrot-update.service -n 30 --no-pager
+```
+
 ## 更新とログ
 
 初回起動手順の最初のコマンドを再実行すると、ソースと依存関係を更新しサービスを再起動します。Discordログイン設定、Botトークン、リアクションロールと交換募集のSQLiteデータはEC2内に保存されます。復旧用バックアップを取る場合は、EC2内で所有者だけが読み取れる場所に保管してください。

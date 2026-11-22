@@ -1,0 +1,9 @@
+[Unit]
+Description=Check GitHub for Catch the Brainrot updates
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

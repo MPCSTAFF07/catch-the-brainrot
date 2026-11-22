@@ -1,0 +1,11 @@
+[Unit]
+Description=Update Catch the Brainrot from GitHub main
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+StateDirectory=catch-the-brainrot-deploy
+StateDirectoryMode=0700
+TimeoutStartSec=5min
+ExecStart=/usr/local/sbin/catch-the-brainrot-update
