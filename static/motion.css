@@ -74,7 +74,7 @@
 }
 
 @keyframes menu-enter {
-  from { clip-path: inset(0 0 100% 0); transform: translateY(-14px); }
+  from { clip-path: inset(14px 0 100% 0); transform: translateY(-14px); }
   72% { clip-path: inset(0); transform: translateY(3px); }
   to { clip-path: inset(0); transform: translateY(0); }
 }

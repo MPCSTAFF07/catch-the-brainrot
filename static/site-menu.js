@@ -6,7 +6,7 @@ if (menu && summary && panel && typeof panel.animate === "function") {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const duration = 470;
   const keyframes = [
-    { clipPath: "inset(0 0 100% 0)", transform: "translateY(-14px)", opacity: 0.7 },
+    { clipPath: "inset(14px 0 100% 0)", transform: "translateY(-14px)", opacity: 0.7 },
     { clipPath: "inset(0)", transform: "translateY(0)", opacity: 1 },
   ];
 
