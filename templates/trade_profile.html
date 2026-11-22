@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ 'プロフィール' if own else name }}{% endblock %}
+{% macro profile_offer(offer) %}
+  <a class="profile-offer" href="{{ url_for('trade.offer', offer_id=offer.id) }}">
+    <span><small>出す</small><strong>{{ offer.offered }}</strong></span>
+    <span><small>欲しい</small><strong>{{ offer.wanted }}</strong></span>
+  </a>
+{% endmacro %}
 {% block content %}
   <header class="profile-heading">
     <div class="profile-cover" aria-hidden="true">
@@ -80,9 +86,9 @@
 
   <section class="trade-compose profile-panel">
     <h2>募集中の交換</h2>
-    <div class="deal-list">
+    <div class="profile-offer-grid">
       {% for offer in offers %}
-        <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
+        {{ profile_offer(offer) }}
       {% else %}
         <p class="profile-empty">募集中の交換はありません。</p>
       {% endfor %}
@@ -93,9 +99,9 @@
   {% if own %}
   <section class="trade-compose profile-panel">
     <h2>いいねした募集</h2>
-    <div class="deal-list">
+    <div class="profile-offer-grid">
       {% for offer in liked %}
-        <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
+        {{ profile_offer(offer) }}
       {% else %}
         <p class="profile-empty">まだいいねした募集はありません。</p>
       {% endfor %}
