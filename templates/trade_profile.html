@@ -40,8 +40,8 @@
 
   <div class="profile-panels">
     <section id="wishes" class="trade-compose profile-panel">
-      <h2>欲しいキャラ</h2>
-      {% if own %}
+      <h2>欲しいキャラ{% if own %} <small>{{ wishes|length }}/{{ wish_limit }}</small>{% endif %}</h2>
+      {% if own and wishes|length < wish_limit %}
         <form class="profile-wish-form" method="post" action="{{ url_for('trade.add_wish') }}">
           <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
           <input name="character_name" maxlength="100" required aria-label="欲しいキャラ名" placeholder="欲しいキャラ名">
@@ -87,6 +87,7 @@
         <p class="profile-empty">募集中の交換はありません。</p>
       {% endfor %}
     </div>
+    {% if more_offers %}<div class="profile-more"><a href="{{ url_for('trade.listing_history', user_id=uid, section='active') }}">さらに表示 →</a></div>{% endif %}
   </section>
 
   {% if own %}
@@ -99,6 +100,7 @@
         <p class="profile-empty">まだいいねした募集はありません。</p>
       {% endfor %}
     </div>
+    {% if more_liked %}<div class="profile-more"><a href="{{ url_for('trade.listing_history', user_id=uid, section='liked') }}">さらに表示 →</a></div>{% endif %}
   </section>
   <p class="offer-note">バナー：{{ 'ぶれろ鯖のDiscordプロフィール' if guild_banner_hash else ('Discordアカウント' if banner_hash else 'サイト既定の画像') }}</p>
   <form class="trade-actions" method="post" action="{{ url_for('trade.refresh_profile_images') }}">

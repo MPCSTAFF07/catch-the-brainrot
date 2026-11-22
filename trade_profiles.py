@@ -7,7 +7,9 @@ from flask import abort, flash, redirect, render_template, request, session, url
 
 USER_ID = re.compile(r"[1-9][0-9]{16,19}")
 IMAGE_HASH = re.compile(r"(?:a_)?[0-9a-f]{32}")
-WISH_LIMIT = 30
+WISH_LIMIT = 5
+PREVIEW_LIMIT = 3
+PROFILE_PAGE_SIZE = 24
 
 
 def save_profile(db, user_id, name):
@@ -190,25 +192,17 @@ def register_profiles(board, database, fetch_profile_images=None):
                 {"user": user_id, "me": me},
             ).fetchone()
             wishes = db.execute(
-                "SELECT id, character_name FROM trade_wishes WHERE user_id=? ORDER BY id DESC", (user_id,)
+                "SELECT id, character_name FROM trade_wishes WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, WISH_LIMIT)
             ).fetchall()
             recent = db.execute(
                 """SELECT CASE WHEN o.owner_id=:user THEN o.offered ELSE o.wanted END AS given,
                           CASE WHEN o.owner_id=:user THEN o.wanted ELSE o.offered END AS received
                    FROM trade_deals d JOIN trade_offers o ON o.id=d.offer_id
                    WHERE d.status='completed' AND (o.owner_id=:user OR d.buyer_id=:user)
-                   ORDER BY o.closed_at DESC, d.id DESC LIMIT 6""", {"user": user_id},
+                   ORDER BY o.closed_at DESC, d.id DESC LIMIT :limit""", {"user": user_id, "limit": PREVIEW_LIMIT},
             ).fetchall()
-            offers = db.execute(
-                """SELECT o.id, o.offered, o.wanted FROM trade_offers o
-                   WHERE o.owner_id=? AND o.closed_at IS NULL AND NOT EXISTS(
-                       SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted'
-                   ) ORDER BY o.id DESC LIMIT 8""", (user_id,),
-            ).fetchall()
-            liked = db.execute(
-                """SELECT o.id, o.offered, o.wanted FROM trade_likes l JOIN trade_offers o ON o.id=l.offer_id
-                   WHERE l.user_id=? ORDER BY l.rowid DESC LIMIT 12""", (me,),
-            ).fetchall() if own else []
+            offers = profile_offers(db, user_id, "active", PREVIEW_LIMIT + 1)
+            liked = profile_offers(db, me, "liked", PREVIEW_LIMIT + 1) if own else []
         default_index = user["default_avatar_index"]
         if default_index is None:
             default_index = (int(user_id) >> 22) % 6
@@ -216,7 +210,38 @@ def register_profiles(board, database, fetch_profile_images=None):
             "trade_profile.html", uid=user_id, name=user["display_name"], own=own, stats=stats,
             avatar_hash=user["avatar_hash"], banner_hash=user["banner_hash"], default_avatar_index=default_index,
             guild_banner_hash=user["guild_banner_hash"], guild_banner_id=user["guild_banner_id"],
-            wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
+            wishes=wishes, recent=recent, offers=offers[:PREVIEW_LIMIT], liked=liked[:PREVIEW_LIMIT],
+            more_offers=len(offers) > PREVIEW_LIMIT, more_liked=len(liked) > PREVIEW_LIMIT,
+            wish_limit=WISH_LIMIT, active="trade_profile",
+        )
+
+    def profile_offers(db, user_id, section, limit, offset=0):
+        if section == "liked":
+            return db.execute(
+                """SELECT o.id, o.offered, o.wanted FROM trade_likes l JOIN trade_offers o ON o.id=l.offer_id
+                   WHERE l.user_id=? ORDER BY l.rowid DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
+            ).fetchall()
+        return db.execute(
+            """SELECT o.id, o.offered, o.wanted FROM trade_offers o
+               WHERE o.owner_id=? AND o.closed_at IS NULL AND NOT EXISTS(
+                   SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted'
+               ) ORDER BY o.id DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
+        ).fetchall()
+
+    @board.get("/profile/<user_id>/offers/<section>")
+    def listing_history(user_id, section):
+        if not USER_ID.fullmatch(user_id) or section not in {"active", "liked"}:
+            abort(404)
+        if section == "liked" and session["discord_id"] != user_id:
+            abort(404)
+        page = min(10000, max(1, request.args.get("page", 1, type=int)))
+        with database() as db:
+            if db.execute("SELECT 1 FROM trade_profiles WHERE user_id=?", (user_id,)).fetchone() is None:
+                abort(404)
+            rows = profile_offers(db, user_id, section, PROFILE_PAGE_SIZE + 1, (page - 1) * PROFILE_PAGE_SIZE)
+        return render_template(
+            "trade_profile_offers.html", uid=user_id, section=section, offers=rows[:PROFILE_PAGE_SIZE],
+            page=page, has_next=len(rows) > PROFILE_PAGE_SIZE, active="trade_profile",
         )
 
     @board.get("/profile/<user_id>/connections")
@@ -267,7 +292,7 @@ def register_profiles(board, database, fetch_profile_images=None):
                 save_current_user(db)
                 count = db.execute("SELECT COUNT(*) FROM trade_wishes WHERE user_id=?", (me,)).fetchone()[0]
                 if count >= WISH_LIMIT:
-                    flash("欲しいキャラは30件まで登録できます。", "error")
+                    flash(f"欲しいキャラは{WISH_LIMIT}件まで登録できます。", "error")
                 else:
                     db.execute(
                         "INSERT OR IGNORE INTO trade_wishes(user_id, character_name, name_key) VALUES (?, ?, ?)",

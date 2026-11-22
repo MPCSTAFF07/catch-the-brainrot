@@ -270,3 +270,7 @@
   .profile-follow button { padding-inline: 8px; white-space: nowrap; }
   .profile-stats { padding: 0 10px 12px; }
 }
+
+.profile-more { display: flex; justify-content: flex-end; margin-top: 12px; }
+.profile-more a { color: var(--trade-accent); font-size: 14px; font-weight: 800; }
+.profile-panel h2 small { color: var(--trade-muted); font-size: 13px; font-weight: 600; }
