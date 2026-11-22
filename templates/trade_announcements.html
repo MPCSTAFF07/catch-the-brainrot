@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}募集パネル配信{% endblock %}
+{% block content %}
+  <h1>募集パネル配信</h1>
+  {% if not state.connected %}
+    <p class="notice">Botを接続すると配信先を選べます。 <a href="{{ url_for('settings') }}">Bot設定</a></p>
+  {% endif %}
+  <section class="panel">
+    <p class="hint">設定後の新しい募集をDiscordに配信します。募集に添付した写真も表示されます。</p>
+    {% if state.connected %}
+      <p class="hint">配信先でBotに「チャンネルを見る」「メッセージを送信」「埋め込みリンク」「ファイルを添付」を許可してください。</p>
+    {% endif %}
+    {% if state.channels or state.channel_id %}
+      <form method="post" class="form">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <label>配信先
+          <select name="channel_id">
+            <option value="">配信しない</option>
+            {% for id, name, available in state.channels %}
+              <option value="{{ id }}" {% if id == state.channel_id %}selected{% endif %} {% if not available %}disabled{% endif %}>#{{ name }}{% if not available %}（権限不足）{% endif %}</option>
+            {% endfor %}
+            {% if state.channel_id and state.channel_id not in (state.channels|map(attribute=0)|list) %}
+              <option value="{{ state.channel_id }}" selected disabled>設定済みのチャンネルを確認できません</option>
+            {% endif %}
+          </select>
+        </label>
+        <button type="submit">保存</button>
+      </form>
+    {% elif state.connected %}
+      <p class="hint">Discordで配信用のテキストチャンネルを作成してください。</p>
+    {% endif %}
+  </section>
+{% endblock %}

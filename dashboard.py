@@ -25,6 +25,7 @@ from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
 from offer_photos import MAX_OFFER_REQUEST_BYTES
+from trade_announcements import SITE_ORIGIN, TradeAnnouncements, can_publish, publish_offer
 from trades import create_trade_board
 from site_support import create_support
 from trade_profiles import remember_profile
@@ -34,7 +35,7 @@ BOT_FILE = ROOT / ".web-bot.json"
 TRADE_DB = ROOT / "trades.sqlite3"
 SUPPORT_DB = ROOT / "support.sqlite3"
 LOG = logging.getLogger("dashboard")
-CALLBACK_URL = "https://catch-the-brainrot.eggkingdom.com/auth/discord/callback"
+CALLBACK_URL = f"{SITE_ORIGIN}/auth/discord/callback"
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_ID = re.compile(r"[1-9][0-9]{16,19}")
 
@@ -127,6 +128,7 @@ class BotManager:
         self.bot = None
         self.gateway = None
         self.settings = read_settings(BOT_FILE)
+        self.announcements = TradeAnnouncements(TRADE_DB)
         legacy = dotenv_values(ROOT / ".env")
         self.legacy_guild = str(legacy.get("DISCORD_GUILD_ID") or "").strip()
         if not self.settings and legacy.get("DISCORD_TOKEN") and self.legacy_guild.isdecimal():
@@ -135,6 +137,7 @@ class BotManager:
     def run(self):
         asyncio.set_event_loop(self.loop)
         self.loop.create_task(self.restore())
+        self.loop.create_task(self.announcement_worker())
         self.loop.run_forever()
 
     async def restore(self):
@@ -176,6 +179,34 @@ class BotManager:
         self.settings = settings
         self.bot = bot
         self.gateway = asyncio.create_task(self.connect_gateway(bot))
+
+    async def announce_next_offer(self):
+        bot = self.bot
+        guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+        if guild is None or guild.unavailable:
+            return
+        target = await asyncio.to_thread(self.announcements.destination)
+        if not target or target[0] != str(guild.id):
+            return
+        channel = guild.get_channel(int(target[1]))
+        if not can_publish(channel, guild.me):
+            return
+        offer = await asyncio.to_thread(self.announcements.next_offer, *target)
+        if offer is None:
+            return
+        if not offer["closed_at"]:
+            await asyncio.wait_for(publish_offer(channel, offer), timeout=20)
+        await asyncio.to_thread(self.announcements.delivered, offer["id"])
+
+    async def announcement_worker(self):
+        while True:
+            try:
+                await self.announce_next_offer()
+            except (discord.HTTPException, sqlite3.Error, OSError) as error:
+                LOG.warning("Discordへの募集配信に失敗しました: %s", type(error).__name__)
+                await asyncio.sleep(30)
+            else:
+                await asyncio.sleep(3)
 
     async def create_trade_channel(self, form):
         bot = self.bot
@@ -314,6 +345,26 @@ class BotManager:
 
             bot = self.bot
             guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+            if action == "trade_announcements_save":
+                if "channel_id" not in form:
+                    raise ValueError("募集パネルの配信先を選んでください。")
+                channel_id = form["channel_id"].strip()
+                if channel_id:
+                    if guild is None or guild.unavailable:
+                        raise ValueError("BotをDiscordサーバーに接続してから設定してください。")
+                    channel = guild.get_channel(int(channel_id)) if DISCORD_ID.fullmatch(channel_id) else None
+                    if not can_publish(channel, guild.me):
+                        raise ValueError("Botが投稿できるDiscordのテキストチャンネルを選んでください。")
+                await asyncio.to_thread(self.announcements.configure, str(guild.id) if guild else "", channel_id)
+                return
+            if action == "trade_announcements":
+                target = await asyncio.to_thread(self.announcements.destination)
+                return {
+                    "connected": guild is not None and not guild.unavailable,
+                    "channel_id": target[1] if target else "",
+                    "channels": [(str(channel.id), channel.name, can_publish(channel, guild.me))
+                                 for channel in guild.text_channels] if guild is not None else [],
+                }
             if action == "trade_categories_save":
                 if guild is None or guild.me is None:
                     raise ValueError("BotをDiscordサーバーに接続してから設定してください。")
@@ -434,6 +485,10 @@ def create_app(manager, admin):
         if request.endpoint not in {
             "login", "discord_login", "discord_callback", "support.terms", "support.privacy", "support.contact",
         } and not user_id:
+            if request.endpoint == "trade.offer":
+                offer_id = request.view_args["offer_id"]
+                if 1 <= offer_id <= 2**63 - 1:
+                    session["login_offer_id"] = offer_id
             return redirect(url_for("login"))
         return None
 
@@ -509,6 +564,7 @@ def create_app(manager, admin):
             return redirect(url_for("login"), code=303)
         if not isinstance(user_id, str) or not DISCORD_ID.fullmatch(user_id):
             return render_template("login.html", error="Discordアカウントを確認できませんでした。"), 403
+        offer_id = session.get("login_offer_id")
         session.clear()
         session["discord_id"] = user_id
         session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
@@ -519,6 +575,8 @@ def create_app(manager, admin):
             avatar=profile.get("avatar"), banner=profile.get("banner"),
             discriminator=profile.get("discriminator"),
         )
+        if offer_id is not None:
+            return redirect(url_for("trade.offer", offer_id=offer_id), code=303)
         return redirect(url_for("trade.index"), code=303)
 
     @app.get("/admins")
@@ -597,6 +655,15 @@ def create_app(manager, admin):
             return redirect(url_for("trade_categories"), code=303)
         return render_template("trade_categories.html", state=manager.call("trade_categories", {}), active="trade_categories")
 
+    @app.route("/trade-announcements", methods=["GET", "POST"])
+    @admin_required
+    def trade_announcements():
+        if request.method == "POST":
+            submit("trade_announcements_save", "募集パネルの配信設定を保存しました。")
+            return redirect(url_for("trade_announcements"), code=303)
+        state = manager.call("trade_announcements", {})
+        return render_template("trade_announcements.html", state=state, active="trade_announcements")
+
     @app.route("/member-counter", methods=["GET", "POST"])
     @admin_required
     def member_counter():
@@ -644,9 +711,10 @@ def main():
         raise SystemExit("先に python dashboard.py init-admin でDiscordログインを設定してください。")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     manager = BotManager()
+    app = create_app(manager, admin)
     threading.Thread(target=manager.run, name="discord", daemon=True).start()
     serve(
-        create_app(manager, admin),
+        app,
         host="127.0.0.1",
         port=18791,
         trusted_proxy="127.0.0.1",

@@ -5,6 +5,7 @@ import time
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, session, url_for
 
 from offer_photos import MAX_PHOTO_BYTES, prepare_offer_photo
+from trade_announcements import init_announcements, queue_announcement
 from trade_profiles import register_profiles, save_profile
 from trade_notifications import notify_approved, notify_proposal, notify_wanted_item, register_notifications
 
@@ -56,6 +57,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
                 buyer_done INTEGER NOT NULL DEFAULT 0
             )
         """)
+        init_announcements(db)
         deal_columns = {row["name"] for row in db.execute("PRAGMA table_info(trade_deals)")}
         for column, kind in (("discord_channel_id", "TEXT"), ("discord_guild_id", "TEXT"), ("provision_started_at", "INTEGER")):
             if column not in deal_columns:
@@ -196,6 +198,7 @@ def create_trade_board(db_path, fetch_profile_images=None, create_trade_channel=
             if photo:
                 db.execute("INSERT INTO trade_offer_photos VALUES (?, ?, ?)", (result.lastrowid, *photo))
             notify_wanted_item(db, session["discord_id"], result.lastrowid, offered)
+            queue_announcement(db, result.lastrowid)
         flash("交換募集を投稿しました。", "success")
         return redirect(url_for("trade.offer", offer_id=result.lastrowid), code=303)
 

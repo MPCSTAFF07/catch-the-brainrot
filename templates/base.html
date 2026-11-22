@@ -44,6 +44,7 @@
                 <p class="nav-group">管理</p>
                 <a href="{{ url_for('reactions') }}" {% if active == 'reactions' %}aria-current="page"{% endif %}>リアクションロール</a>
                 <a href="{{ url_for('trade_categories') }}" {% if active == 'trade_categories' %}aria-current="page"{% endif %}>取引カテゴリ設定</a>
+                <a href="{{ url_for('trade_announcements') }}" {% if active == 'trade_announcements' %}aria-current="page"{% endif %}>募集パネル配信</a>
                 <a href="{{ url_for('member_counter') }}" {% if active == 'member_counter' %}aria-current="page"{% endif %}>メンバー数表示</a>
                 <a href="{{ url_for('settings') }}" {% if active == 'settings' %}aria-current="page"{% endif %}>Bot設定</a>
                 <a href="{{ url_for('admins') }}" {% if active == 'admins' %}aria-current="page"{% endif %}>管理者</a>
