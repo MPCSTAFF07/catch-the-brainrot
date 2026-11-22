@@ -27,6 +27,55 @@ py -m venv .venv
 
 Linuxでは `cp .env.example .env` でコピーして編集し、`python3 -m venv .venv`、`.venv/bin/python -m pip install -r requirements.txt`、`.venv/bin/python bot.py` を実行します。
 
+## EC2（Ubuntu）で常時起動
+
+EC2にSSH接続し、`ubuntu` ユーザーで実行します。BotはDiscordへ外向きに接続します。Bot用の受信ポートやDNS設定は不要です。
+
+```bash
+(
+  set -e
+  sudo apt-get update
+  sudo apt-get install -y git python3-venv
+  cd "$HOME"
+  git clone https://github.com/MPCSTAFF07/catch-the-brainrot.git
+  cd catch-the-brainrot
+  python3 -m venv .venv
+  .venv/bin/python -m pip install -r requirements.txt
+  install -m 600 .env.example .env
+  nano .env
+)
+```
+
+`.env` に `DISCORD_TOKEN` と `DISCORD_GUILD_ID` を入力します。nanoでは Ctrl+O → Enter で保存し、Ctrl+X で閉じます。
+
+```bash
+(
+  set -e
+  cd "$HOME/catch-the-brainrot"
+  sudo install -m 644 deploy/catch-the-brainrot.service /etc/systemd/system/catch-the-brainrot.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now catch-the-brainrot.service
+)
+sudo journalctl -u catch-the-brainrot.service -n 30 --no-pager
+```
+
+ログに「ログイン完了」が出たら、Discordで `/reaction-role list` を実行して確認します。
+
+更新するときは次を実行します。リアクションロールの設定は `reaction_roles.sqlite3` に保存されます。
+
+```bash
+(
+  set -e
+  cd "$HOME/catch-the-brainrot"
+  git pull --ff-only
+  .venv/bin/python -m pip install -r requirements.txt
+  sudo install -m 644 deploy/catch-the-brainrot.service /etc/systemd/system/catch-the-brainrot.service
+  sudo systemctl daemon-reload
+  sudo systemctl restart catch-the-brainrot.service
+)
+sudo journalctl -u catch-the-brainrot.service -n 30 --no-pager
+```
+
 ## Discord内での設定
 
 1. 案内メッセージを投稿し、右クリックから「メッセージリンクをコピー」を選びます。
