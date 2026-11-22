@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ item.offered }}の取引{% endblock %}
+{% block content %}
+  {% set own = item.owner_id == session['discord_id'] %}
+  {% set my_done = item.owner_done if own else item.buyer_done %}
+  {% set other_done = item.buyer_done if own else item.owner_done %}
+  <a class="trade-back" href="{{ url_for('trade.inbox', box='incoming' if own else none) }}">← 取引一覧</a>
+  <section class="trade-compose">
+    <div class="offer-head"><span class="trade-tag">{{ statuses[item.status] }}</span><a href="{{ url_for('trade.offer', offer_id=item.offer_id) }}">募集詳細 ↗</a></div>
+    <h1>{{ item.offered }}</h1>
+    <div class="offer-items">
+      <div><span>欲しいもの</span><strong>{{ item.wanted }}</strong></div>
+      <div><span>取引相手</span><strong>{{ item.buyer_name if own else item.owner_name }}</strong></div>
+    </div>
+    {% if item.status == 'accepted' %}
+      <p class="offer-note">ゲーム内で交換が済んだら「交換完了を確認」を押してください。両方が確認すると取引が完了します。</p>
+      {% if my_done %}<p class="offer-note">相手の完了確認を待っています。</p>{% elif other_done %}<p class="offer-note">相手は交換完了を確認済みです。</p>{% endif %}
+    {% endif %}
+    {% if item.status in ('pending', 'accepted') %}
+      <form class="trade-actions" action="{{ url_for('trade.deal_action', deal_id=item.id) }}" method="post">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        {% if item.status == 'pending' and own %}
+          <button name="action" value="accept" type="submit">承認する</button>
+          <button class="trade-secondary" name="action" value="decline" type="submit">見送る</button>
+        {% elif item.status == 'pending' %}
+          <button class="trade-secondary" name="action" value="cancel" type="submit">申込みを取り消す</button>
+        {% else %}
+          {% if not my_done %}<button name="action" value="complete" type="submit">交換完了を確認</button>{% endif %}
+          {% if not my_done and not other_done %}<button class="trade-secondary" name="action" value="cancel" type="submit">取引をキャンセル</button>{% endif %}
+        {% endif %}
+      </form>
+    {% endif %}
+  </section>
+
+  <section id="messages" class="trade-compose">
+    <h2>取引メッセージ</h2>
+    {% if messages|length == 100 %}<p class="offer-note">直近100件を表示しています。</p>{% endif %}
+    <div class="message-list">
+    {% for message in messages %}
+      <article class="trade-message{% if message.sender_id == session['discord_id'] %} is-mine{% endif %}">
+        <header>{{ '自分' if message.sender_id == session['discord_id'] else (item.buyer_name if own else item.owner_name) }}</header>
+        <p>{{ message.body }}</p>
+      </article>
+    {% endfor %}
+    </div>
+    {% if item.status in ('pending', 'accepted') %}
+      <form action="{{ url_for('trade.send_message', deal_id=item.id) }}" method="post" class="form">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <label>メッセージ<textarea name="message" required rows="3" maxlength="1000"></textarea></label>
+        <button type="submit">送信</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

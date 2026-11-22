@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}交換に出す{% endblock %}
+{% block content %}
+  <a class="trade-back" href="{{ url_for('trade.index') }}">← 交換を探す</a>
+  <section class="trade-compose">
+    <h1>交換に出す</h1>
+    <form action="{{ url_for('trade.post') }}" method="post" class="form">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <label>カテゴリ
+        <select name="category" required>
+          {% for id, label in categories.items() %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="fields">
+        <label>出すもの<input name="offered" maxlength="100" required></label>
+        <label>欲しいもの<input name="wanted" maxlength="100" required></label>
+      </div>
+      <label>交換条件（任意）<textarea name="note" rows="4" maxlength="600"></textarea></label>
+      <button type="submit">募集を投稿</button>
+    </form>
+  </section>
+{% endblock %}

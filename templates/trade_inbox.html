@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}取引・メッセージ{% endblock %}
+{% block content %}
+  <h1>取引・メッセージ</h1>
+  <nav class="trade-tabs" aria-label="申込みの種類">
+    <a href="{{ url_for('trade.inbox') }}" {% if not incoming %}aria-current="page"{% endif %}>送った申込み</a>
+    <a href="{{ url_for('trade.inbox', box='incoming') }}" {% if incoming %}aria-current="page"{% endif %}>届いた申込み</a>
+  </nav>
+  <div class="trade-compose deal-list">
+    {% for deal in deals %}
+      <a href="{{ url_for('trade.deal', deal_id=deal.id) }}">
+        <div><strong>{{ deal.offered }}</strong><small>{{ deal.buyer_name if incoming else deal.owner_name }}</small></div>
+        <span class="trade-tag">{{ statuses[deal.status] }}</span>
+      </a>
+    {% else %}
+      <p class="trade-empty">申込みはありません。</p>
+    {% endfor %}
+  </div>
+  {% if page > 1 or has_next %}
+    <nav class="trade-pages" aria-label="ページ移動">
+      {% if page > 1 %}<a href="{{ url_for('trade.inbox', box='incoming' if incoming else none, page=page-1) }}">前のページ</a>{% endif %}
+      {% if has_next %}<a href="{{ url_for('trade.inbox', box='incoming' if incoming else none, page=page+1) }}">次のページ</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

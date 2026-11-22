@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ item.offered }}の交換募集{% endblock %}
+{% block content %}
+  <a class="trade-back" href="{{ url_for('trade.index', mine=1 if own else none) }}">← {{ '自分の募集' if own else '交換を探す' }}</a>
+  <section class="trade-compose">
+    <div class="offer-head">
+      <span class="trade-tag">{{ categories[item.category] }}</span>
+      <span>{{ '締切済み' if item.closed_at else ('交換中' if item.in_progress else '募集中') }}</span>
+    </div>
+    <h1>{{ item.offered }}</h1>
+    <div class="offer-items">
+      <div><span>欲しいもの</span><strong>{{ item.wanted }}</strong></div>
+      <div><span>出品者</span><strong>{{ item.owner_name }}</strong></div>
+    </div>
+    {% if item.note %}<p class="offer-note">{{ item.note }}</p>{% endif %}
+  </section>
+
+  {% if can_apply %}
+    <section class="trade-compose">
+      <h2>交換を申し込む</h2>
+      <form class="form" action="{{ url_for('trade.apply', offer_id=item.id) }}" method="post">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <label>出品者へのメッセージ<textarea name="message" rows="3" maxlength="1000" required placeholder="出せるものや交換できる時間を伝える"></textarea></label>
+        <button type="submit">申込みを送る</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if deals %}
+    <section class="trade-compose">
+      <h2>{{ '届いた申込み' if own else '自分の申込み' }}</h2>
+      <div class="deal-list">
+      {% for deal in deals %}
+        <a href="{{ url_for('trade.deal', deal_id=deal.id) }}"><strong>{{ deal.buyer_name if own else '取引メッセージ' }}</strong><span class="trade-tag">{{ statuses[deal.status] }}</span></a>
+      {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+  {% if own and not item.closed_at and not item.in_progress %}
+    <form class="trade-actions" action="{{ url_for('trade.close', offer_id=item.id) }}" method="post">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button class="trade-secondary" type="submit">募集を締め切る</button>
+    </form>
+  {% endif %}
+{% endblock %}
