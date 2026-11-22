@@ -1,17 +1,27 @@
 {% extends "base.html" %}
+{% from "trade_profile_cards.html" import profile_offer %}
 {% set heading = 'いいねした募集' if section == 'liked' else '募集中の交換' %}
 {% block title %}{{ heading }}{% endblock %}
 {% block content %}
   <a class="trade-back" href="{{ url_for('trade.profile', user_id=uid) }}">← プロフィールに戻る</a>
   <section class="trade-compose profile-panel">
     <h1>{{ heading }}</h1>
+    {% set split = section == 'active' and page == 1 and offers %}
+    {% if split %}
+    <div class="profile-offer-grid">
+      {% for offer in offers[:3] %}{{ profile_offer(offer) }}{% endfor %}
+    </div>
+    {% endif %}
+    {% set rows = offers[3:] if split else offers %}
+    {% if rows or not offers %}
     <div class="deal-list">
-      {% for offer in offers %}
+      {% for offer in rows %}
         <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
       {% else %}
         <p class="profile-empty">募集はありません。</p>
       {% endfor %}
     </div>
+    {% endif %}
     {% if page > 1 or has_next %}
       <nav class="trade-pages" aria-label="ページ移動">
         {% if page > 1 %}<a href="{{ url_for('trade.listing_history', user_id=uid, section=section, page=page-1) }}">前のページ</a>{% endif %}

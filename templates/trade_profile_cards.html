@@ -1,0 +1,6 @@
+{% macro profile_offer(offer) %}
+  <a class="profile-offer" href="{{ url_for('trade.offer', offer_id=offer.id) }}">
+    <span><small>出す</small><strong>{{ offer.offered }}</strong></span>
+    <span><small>欲しい</small><strong>{{ offer.wanted }}</strong></span>
+  </a>
+{% endmacro %}
