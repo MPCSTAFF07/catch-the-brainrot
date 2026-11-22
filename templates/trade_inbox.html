@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}取引・メッセージ{% endblock %}
+{% from "trade_person.html" import person %}
+{% block title %}提案・取引{% endblock %}
 {% block content %}
-  <h1>取引・メッセージ</h1>
+  <h1>提案・取引</h1>
   <nav class="trade-tabs" aria-label="申込みの種類">
     <a href="{{ url_for('trade.inbox') }}" {% if not incoming %}aria-current="page"{% endif %}>送った申込み</a>
     <a href="{{ url_for('trade.inbox', box='incoming') }}" {% if incoming %}aria-current="page"{% endif %}>届いた申込み</a>
@@ -9,7 +10,7 @@
   <div class="trade-compose deal-list">
     {% for deal in deals %}
       <a href="{{ url_for('trade.deal', deal_id=deal.id) }}">
-        <div><strong>{{ deal.offered }}</strong><small>{{ deal.buyer_name if incoming else deal.owner_name }}</small></div>
+        <div><strong>{{ deal.offered }}</strong>{% if incoming %}{{ person(deal.buyer_id, deal.buyer_display_name, deal.buyer_avatar, deal.buyer_default_avatar) }}{% else %}{{ person(deal.owner_id, deal.owner_display_name, deal.owner_avatar, deal.owner_default_avatar) }}{% endif %}</div>
         <span class="trade-tag">{{ statuses[deal.status] }}</span>
       </a>
     {% else %}

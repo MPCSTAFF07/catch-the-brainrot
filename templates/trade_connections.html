@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "trade_person.html" import person as person_badge %}
 {% block title %}{{ 'フォロー中' if following else 'フォロワー' }}{% endblock %}
 {% block content %}
   <a class="trade-back" href="{{ url_for('trade.profile', user_id=uid) }}">← {{ name }}のプロフィール</a>
@@ -10,7 +11,7 @@
     </nav>
     <div class="deal-list">
       {% for person in people %}
-        <a href="{{ url_for('trade.profile', user_id=person.user_id) }}"><strong>{{ person.display_name }}</strong><span aria-hidden="true">↗</span></a>
+        <a href="{{ url_for('trade.profile', user_id=person.user_id) }}">{{ person_badge(person.user_id, person.display_name, person.avatar_hash, person.default_avatar_index) }}<span aria-hidden="true">↗</span></a>
       {% else %}
         <p class="profile-empty">まだ誰もいません。</p>
       {% endfor %}

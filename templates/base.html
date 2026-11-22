@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css', v='trade-profile-1') }}">
-  {% if active in ("trade", "trade_inbox", "trade_profile") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='trade-offer-actions-1') }}">{% endif %}
+  {% if active in ("trade", "trade_inbox", "trade_profile") %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css', v='trade-discord-channel-1') }}">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='motion.css', v='menu-slide-2') }}">
   {% if session.get('discord_id') %}<script src="{{ url_for('static', filename='site-menu.js', v='menu-slide-2') }}" defer></script>{% endif %}
   {% if active == 'reactions' %}
@@ -32,7 +32,7 @@
               <div class="site-nav-column">
                 <p class="nav-group">交換</p>
                 <a href="{{ url_for('trade.index') }}" {% if active == 'trade' %}aria-current="page"{% endif %}>交換を探す</a>
-                <a href="{{ url_for('trade.inbox') }}" {% if active == 'trade_inbox' %}aria-current="page"{% endif %}>取引・メッセージ</a>
+                <a href="{{ url_for('trade.inbox') }}" {% if active == 'trade_inbox' %}aria-current="page"{% endif %}>提案・取引</a>
               </div>
               {% if g.is_admin %}
               <div class="site-nav-column">

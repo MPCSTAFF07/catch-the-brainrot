@@ -223,9 +223,7 @@ def register_profiles(board, database, fetch_profile_images=None):
             ).fetchall()
         return db.execute(
             """SELECT o.id, o.offered, o.wanted FROM trade_offers o
-               WHERE o.owner_id=? AND o.closed_at IS NULL AND NOT EXISTS(
-                   SELECT 1 FROM trade_deals d WHERE d.offer_id=o.id AND d.status='accepted'
-               ) ORDER BY o.id DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
+               WHERE o.owner_id=? AND o.closed_at IS NULL ORDER BY o.id DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
         ).fetchall()
 
     @board.get("/profile/<user_id>/offers/<section>")
@@ -256,7 +254,7 @@ def register_profiles(board, database, fetch_profile_images=None):
             if user is None:
                 abort(404)
             users = db.execute(
-                f"""SELECT p.user_id, p.display_name FROM trade_follows f
+                f"""SELECT p.user_id, p.display_name, p.avatar_hash, p.default_avatar_index FROM trade_follows f
                     JOIN trade_profiles p ON p.user_id=f.{other} WHERE f.{mine}=?
                     ORDER BY f.rowid DESC LIMIT 25 OFFSET ?""", (user_id, (page - 1)*24),
             ).fetchall()

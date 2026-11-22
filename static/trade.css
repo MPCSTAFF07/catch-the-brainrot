@@ -77,7 +77,7 @@
 .offer-items > div:nth-child(2) span { background: #583850; }
 .offer-note { margin: 14px 0 0; color: var(--trade-muted); font-size: 14px; white-space: pre-wrap; }
 .offer footer { display: flex; justify-content: space-between; align-items: start; gap: 10px; margin-top: 14px; padding-top: 11px; border-top: 1px solid #695f73; color: var(--trade-muted); font-size: 12px; }
-.offer footer span:last-child { color: var(--trade-accent); flex-shrink: 0; }
+.offer footer > span:last-child { color: var(--trade-accent); flex-shrink: 0; }
 .trade-empty { grid-column: 1 / -1; margin: 0; padding: 18px; color: var(--trade-muted); }
 .trade-pages { display: flex; gap: 14px; margin-top: 12px; }
 .trade-compose { margin-top: 17px; padding: 20px; border-top: 3px solid var(--trade-pink); }
@@ -336,3 +336,20 @@
 @media (max-width: 650px) {
   .offer-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+.trade-person {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: inherit;
+  font-weight: 750;
+  text-decoration: none;
+}
+a.trade-person:hover { text-decoration: underline; }
+.trade-person img { width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; object-fit: cover; }
+.trade-person span { overflow-wrap: anywhere; color: inherit; }
+.offer-items .trade-person { color: #e9e1f0; font-size: 14px; }
+.trade-proposal { margin-top: 16px; padding: 12px; background: #392c46; border-left: 2px solid var(--trade-accent); }
+.trade-proposal p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.deal-list .trade-person { margin-block-start: 4px; }

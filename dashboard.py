@@ -174,7 +174,50 @@ class BotManager:
         self.bot = bot
         self.gateway = asyncio.create_task(self.connect_gateway(bot))
 
+    async def create_trade_channel(self, form):
+        bot = self.bot
+        guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+        if guild is None or guild.unavailable or guild.me is None:
+            raise ValueError("BotをDiscordサーバーに接続してから承認してください。")
+        if not guild.me.guild_permissions.manage_channels:
+            raise ValueError("Botに「チャンネルの管理」権限を付けてから承認してください。")
+
+        owner_id, buyer_id = (int(form[key]) for key in ("owner_id", "buyer_id"))
+        marker = f'catch-the-brainrot.eggkingdom.com / trade:{form["deal_id"]}'
+        try:
+            owner, buyer = await asyncio.gather(guild.fetch_member(owner_id), guild.fetch_member(buyer_id))
+        except discord.NotFound as error:
+            raise ValueError("出品者と申込者の両方がDiscordサーバーに参加している必要があります。") from error
+        allowed_ids = {owner_id, buyer_id, guild.me.id}
+        for channel in await guild.fetch_channels():
+            if not isinstance(channel, discord.TextChannel) or channel.topic != marker:
+                continue
+            overwrites = channel.overwrites
+            everyone = next((entry for target, entry in overwrites.items()
+                             if target.id == guild.default_role.id), None)
+            visible = {target.id for target, entry in overwrites.items() if entry.view_channel is True}
+            if everyone is None or everyone.view_channel is not False or visible != allowed_ids:
+                raise ValueError("既存の取引チャンネルの公開範囲を確認してください。")
+            return {"guild_id": str(guild.id), "channel_id": str(channel.id)}
+
+        participant = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+        channel = await guild.create_text_channel(
+            f'取引-{form["deal_id"]}', topic=marker, reason="ぶれろ鯖サイトで交換提案を承認",
+            overwrites={
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                owner: participant, buyer: participant, guild.me: participant,
+            },
+        )
+        return {"guild_id": str(guild.id), "channel_id": str(channel.id)}
+
     async def execute(self, action, form):
+        if action == "trade_channel":
+            try:
+                return await asyncio.wait_for(self.create_trade_channel(form), timeout=25)
+            except discord.Forbidden as error:
+                raise ValueError("Discordで取引チャンネルを作成できません。Botの権限を確認してください。") from error
+            except OSError as error:
+                raise ValueError("Discordに接続できません。しばらくしてから承認をやり直してください。") from error
         if action == "profile_images":
             bot = self.bot
             if bot is None or bot.is_closed():
@@ -286,7 +329,10 @@ def create_app(manager, admin):
         except ValueError:
             return None
 
-    app.register_blueprint(create_trade_board(TRADE_DB, fetch_profile_images))
+    def create_trade_channel(deal_id, owner_id, buyer_id):
+        return manager.call("trade_channel", {"deal_id": deal_id, "owner_id": owner_id, "buyer_id": buyer_id})
+
+    app.register_blueprint(create_trade_board(TRADE_DB, fetch_profile_images, create_trade_channel))
 
     def allowed_ids():
         return read_settings(ADMIN_FILE).get("admin_ids", [])
@@ -324,7 +370,7 @@ def create_app(manager, admin):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Content-Type-Options"] = "nosniff"
         policy = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
-        if request.endpoint in {"reactions", "trade.my_profile", "trade.profile"}:
+        if request.endpoint == "reactions" or request.blueprint == "trade":
             policy += "; img-src 'self' https://cdn.discordapp.com"
         response.headers["Content-Security-Policy"] = policy
         return response

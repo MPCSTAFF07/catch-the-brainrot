@@ -1,0 +1,10 @@
+{% macro person(uid, name, avatar, default_index, link=false) %}
+  {% if link %}<a class="trade-person" href="{{ url_for('trade.profile', user_id=uid) }}">{% else %}<span class="trade-person">{% endif %}
+    {% if avatar %}
+      <img src="https://cdn.discordapp.com/avatars/{{ uid }}/{{ avatar }}.png?size=64" alt="" width="24" height="24" loading="lazy">
+    {% else %}
+      <img src="https://cdn.discordapp.com/embed/avatars/{{ default_index if default_index is not none else (((uid|int) // 4194304) % 6) }}.png" alt="" width="24" height="24" loading="lazy">
+    {% endif %}
+    <span>{{ name }}</span>
+  {% if link %}</a>{% else %}</span>{% endif %}
+{% endmacro %}
