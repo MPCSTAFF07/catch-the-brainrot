@@ -18,6 +18,7 @@ import discord
 from dotenv import dotenv_values
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from waitress import serve
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -29,6 +30,44 @@ LOG = logging.getLogger("dashboard")
 CALLBACK_URL = "https://catch-the-brainrot.eggkingdom.com/auth/discord/callback"
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_ID = re.compile(r"[1-9][0-9]{16,19}")
+
+DISCORD_USER_AGENT = "DiscordBot (https://github.com/MPCSTAFF07/catch-the-brainrot, 1.0)"
+OAUTH_ERRORS = {"invalid_client", "invalid_grant", "invalid_request", "invalid_scope",
+                "unauthorized_client", "unsupported_grant_type"}
+
+
+class DiscordLoginError(Exception):
+    def __init__(self, stage, reason, status=None):
+        self.stage = stage
+        self.reason = reason
+        self.status = status
+
+
+def discord_json(stage, api_request):
+    api_request.add_header("User-Agent", DISCORD_USER_AGENT)
+    api_request.add_header("Accept", "application/json")
+    try:
+        with urlopen(api_request, timeout=8) as response:
+            payload = json.load(response)
+    except HTTPError as error:
+        reason = "http_error"
+        try:
+            body = json.loads(error.read(4096))
+            value = body.get("error") if isinstance(body, dict) else None
+            if isinstance(value, str) and value in OAUTH_ERRORS:
+                reason = value
+        except (OSError, ValueError):
+            pass
+        finally:
+            error.close()
+        raise DiscordLoginError(stage, reason, error.code) from None
+    except OSError:
+        raise DiscordLoginError(stage, "network_error") from None
+    except ValueError:
+        raise DiscordLoginError(stage, "invalid_response") from None
+    if not isinstance(payload, dict):
+        raise DiscordLoginError(stage, "invalid_response")
+    return payload
 
 
 def discord_identity(admin, code):
@@ -43,15 +82,14 @@ def discord_identity(admin, code):
         f"{DISCORD_API}/oauth2/token", data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
-    with urlopen(exchange, timeout=8) as response:
-        access_token = json.load(response)["access_token"]
+    access_token = discord_json("token", exchange).get("access_token")
+    if not isinstance(access_token, str) or not access_token:
+        raise DiscordLoginError("token", "invalid_response")
     profile = Request(
         f"{DISCORD_API}/users/@me",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    with urlopen(profile, timeout=8) as response:
-        return json.load(response)
-
+    return discord_json("profile", profile)
 
 
 def read_settings(path):
@@ -261,10 +299,23 @@ def create_app(manager, admin):
             return redirect(url_for("login"), code=303)
         try:
             profile = discord_identity(admin, code)
-            user_id = profile["id"]
-        except (OSError, ValueError, KeyError, TypeError) as error:
-            LOG.warning("Discordログイン失敗: %s", type(error).__name__)
-            flash("Discordへのログインに失敗しました。時間をおいて再試行してください。", "error")
+            user_id = profile.get("id")
+        except DiscordLoginError as error:
+            LOG.warning(
+                "Discordログイン失敗: stage=%s status=%s reason=%s",
+                error.stage, error.status, error.reason,
+            )
+            if error.reason in {"invalid_client", "unauthorized_client"}:
+                message = "Discordログインの設定に誤りがあります。管理者はOAuth2のClient IDとClient Secretを確認してください。"
+            elif error.reason == "invalid_grant":
+                message = "この認証コードを使用できませんでした。ログイン画面からやり直してください。"
+            elif error.reason == "network_error":
+                message = "管理画面からDiscordに接続できませんでした。時間をおいて再試行してください。"
+            elif error.status == 429:
+                message = "Discordへのリクエストが制限されています。少し待ってから再試行してください。"
+            else:
+                message = "Discordへのログインに失敗しました。管理者はサービスのログを確認してください。"
+            flash(message, "error")
             return redirect(url_for("login"), code=303)
         if not isinstance(user_id, str) or not DISCORD_ID.fullmatch(user_id) or user_id not in allowed_ids():
             return render_template("login.html", error="このDiscordアカウントは管理者に登録されていません。"), 403
