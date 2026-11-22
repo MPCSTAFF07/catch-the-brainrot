@@ -5,15 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} | Catch the Brainrot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  {% if active == "trade" %}<link rel="stylesheet" href="{{ url_for('static', filename='trade.css') }}">{% endif %}
 </head>
-<body class="{% if not session.get('discord_id') %}signed-out{% endif %}">
+<body class="{% if not session.get('discord_id') %}signed-out{% elif active == 'trade' %}trade-page{% endif %}">
 {% if session.get('discord_id') %}
   <aside class="sidebar">
-    <a class="brand" href="{{ url_for('reactions') }}"><span>Catch the Brainrot</span><small>サーバー管理</small></a>
-    <nav aria-label="管理メニュー">
+    <a class="brand" href="{{ url_for('trade.index') }}"><span>Catch the Brainrot</span></a>
+    <nav aria-label="メニュー">
+      <a href="{{ url_for('trade.index') }}" {% if active == 'trade' %}aria-current="page"{% endif %}>交換掲示板</a>
+      {% if g.is_admin %}
+      <span class="nav-group">管理</span>
       <a href="{{ url_for('reactions') }}" {% if active == 'reactions' %}aria-current="page"{% endif %}>リアクションロール</a>
       <a href="{{ url_for('settings') }}" {% if active == 'settings' %}aria-current="page"{% endif %}>Bot設定</a>
       <a href="{{ url_for('admins') }}" {% if active == 'admins' %}aria-current="page"{% endif %}>管理者</a>
+      {% endif %}
     </nav>
     <form class="logout" action="{{ url_for('logout') }}" method="post">
       <p class="hint">{{ session.get('discord_name') }}</p>

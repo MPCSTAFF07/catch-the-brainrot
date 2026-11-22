@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
 from datetime import timedelta
+from functools import wraps
 import getpass
 import hmac
 import json
@@ -16,16 +17,18 @@ import time
 
 import discord
 from dotenv import dotenv_values
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from waitress import serve
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from bot import ROOT, ReactionRoleBot, ReactionRoleCommands
+from trades import create_trade_board
 
 ADMIN_FILE = ROOT / ".web-admin.json"
 BOT_FILE = ROOT / ".web-bot.json"
+TRADE_DB = ROOT / "trades.sqlite3"
 LOG = logging.getLogger("dashboard")
 CALLBACK_URL = "https://catch-the-brainrot.eggkingdom.com/auth/discord/callback"
 DISCORD_API = "https://discord.com/api/v10"
@@ -233,6 +236,7 @@ def create_app(manager, admin):
         MAX_CONTENT_LENGTH=16 * 1024,
     )
     admins_lock = threading.Lock()
+    app.register_blueprint(create_trade_board(TRADE_DB))
 
     def allowed_ids():
         return read_settings(ADMIN_FILE).get("admin_ids", [])
@@ -251,12 +255,18 @@ def create_app(manager, admin):
             if not hmac.compare_digest(session["csrf"].encode(), provided.encode()):
                 abort(400)
         user_id = session.get("discord_id")
-        if user_id and user_id not in allowed_ids():
-            session.clear()
-            user_id = None
+        g.is_admin = bool(user_id and user_id in allowed_ids())
         if request.endpoint not in {"login", "discord_login", "discord_callback"} and not user_id:
             return redirect(url_for("login"))
         return None
+
+    def admin_required(view):
+        @wraps(view)
+        def guarded(*args, **kwargs):
+            if not g.is_admin:
+                abort(403)
+            return view(*args, **kwargs)
+        return guarded
 
     @app.after_request
     def response_headers(response):
@@ -269,13 +279,13 @@ def create_app(manager, admin):
     @app.get("/login")
     def login():
         if session.get("discord_id"):
-            return redirect(url_for("reactions"))
+            return redirect(url_for("trade.index"))
         return render_template("login.html")
 
     @app.get("/auth/discord")
     def discord_login():
         if session.get("discord_id"):
-            return redirect(url_for("reactions"))
+            return redirect(url_for("trade.index"))
         state = secrets.token_urlsafe(32)
         session["oauth_state"] = state
         session["oauth_started"] = int(time.time())
@@ -317,20 +327,22 @@ def create_app(manager, admin):
                 message = "Discordへのログインに失敗しました。管理者はサービスのログを確認してください。"
             flash(message, "error")
             return redirect(url_for("login"), code=303)
-        if not isinstance(user_id, str) or not DISCORD_ID.fullmatch(user_id) or user_id not in allowed_ids():
-            return render_template("login.html", error="このDiscordアカウントは管理者に登録されていません。"), 403
+        if not isinstance(user_id, str) or not DISCORD_ID.fullmatch(user_id):
+            return render_template("login.html", error="Discordアカウントを確認できませんでした。"), 403
         session.clear()
         session["discord_id"] = user_id
         session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
         session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
-        return redirect(url_for("reactions"), code=303)
+        return redirect(url_for("trade.index"), code=303)
 
     @app.get("/admins")
+    @admin_required
     def admins():
         return render_template("admins.html", admins=allowed_ids(), active="admins")
 
     @app.post("/admins/<action>")
+    @admin_required
     def change_admins(action):
         if action not in {"add", "remove"}:
             abort(404)
@@ -342,8 +354,7 @@ def create_app(manager, admin):
             config = read_settings(ADMIN_FILE)
             ids = config["admin_ids"]
             if session["discord_id"] not in ids:
-                session.clear()
-                return redirect(url_for("login"), code=303)
+                abort(403)
             if action == "add" and user_id not in ids:
                 ids.append(user_id)
                 write_settings(ADMIN_FILE, config)
@@ -376,21 +387,25 @@ def create_app(manager, admin):
         else:
             flash(success, "success")
 
-    @app.get("/")
+    @app.get("/reactions")
+    @admin_required
     def reactions():
         return render_template("reactions.html", state=manager.call("status", {}), active="reactions")
 
     @app.post("/reactions/add")
+    @admin_required
     def add():
         submit("add", "リアクションロールを登録しました。")
         return redirect(url_for("reactions"), code=303)
 
     @app.post("/reactions/remove")
+    @admin_required
     def remove():
         submit("remove", "登録を解除しました。付与済みのロールはそのままです。")
         return redirect(url_for("reactions"), code=303)
 
     @app.route("/settings", methods=["GET", "POST"])
+    @admin_required
     def settings():
         if request.method == "POST":
             submit("save", "Bot設定を保存しました。Discordへの接続状態を更新します。")

@@ -4,3 +4,4 @@ __pycache__/
 reaction_roles*.sqlite3*
 .web-admin.json*
 .web-bot.json*
+trades.sqlite3*

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}交換掲示板{% endblock %}
+{% block content %}
+  <header class="trade-hero">
+    <h1>交換掲示板</h1>
+    <a class="trade-post" href="#post-offer">募集を出す</a>
+  </header>
+
+  <nav class="trade-tabs" aria-label="交換募集の表示">
+    <a href="{{ url_for('trade.index', q=query) }}" {% if not mine %}aria-current="page"{% endif %}>すべての募集</a>
+    <a href="{{ url_for('trade.index', mine=1, q=query) }}" {% if mine %}aria-current="page"{% endif %}>自分の募集</a>
+  </nav>
+
+  <form class="trade-search" action="{{ url_for('trade.index') }}" method="get" role="search">
+    {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
+    <input type="search" name="q" value="{{ query }}" maxlength="100" aria-label="アイテム名を検索" placeholder="アイテム名を検索">
+    <button type="submit">検索</button>
+  </form>
+
+  <div class="offer-list">
+  {% for offer in offers %}
+    <article class="offer">
+      <div class="offer-items">
+        <div><span>出す</span><strong>{{ offer.offered }}</strong></div>
+        <div><span>欲しい</span><strong>{{ offer.wanted }}</strong></div>
+      </div>
+      {% if offer.note %}<p class="offer-note">{{ offer.note }}</p>{% endif %}
+      <footer>
+        <span class="offer-author">{{ offer.owner_name }}</span>
+        {% if offer.owner_id == session['discord_id'] %}
+          <form action="{{ url_for('trade.close', offer_id=offer.id) }}" method="post">
+            <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+            <button class="quiet" type="submit">募集を締め切る</button>
+          </form>
+        {% else %}
+          <a href="https://discord.com/users/{{ offer.owner_id }}">Discordで出品者を開く</a>
+        {% endif %}
+      </footer>
+    </article>
+  {% else %}
+    <p class="trade-empty">{{ "条件に合う募集はありません。" if query else "公開中の募集はありません。" }}</p>
+  {% endfor %}
+  </div>
+
+  {% if page > 1 or has_next %}
+    <nav class="trade-pages" aria-label="ページ移動">
+      {% if page > 1 %}<a href="{{ url_for('trade.index', q=query, mine=1 if mine else none, page=page-1) }}">前のページ</a>{% endif %}
+      {% if has_next %}<a href="{{ url_for('trade.index', q=query, mine=1 if mine else none, page=page+1) }}">次のページ</a>{% endif %}
+    </nav>
+  {% endif %}
+
+  <section id="post-offer" class="trade-compose">
+    <h2>交換募集を出す</h2>
+    <form action="{{ url_for('trade.post') }}" method="post" class="form">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <div class="fields">
+        <label>出すもの<input name="offered" maxlength="100" required></label>
+        <label>欲しいもの<input name="wanted" maxlength="100" required></label>
+      </div>
+      <label>ひとこと（任意）<textarea name="note" rows="3" maxlength="600" placeholder="交換条件など"></textarea></label>
+      <button type="submit">募集を投稿</button>
+    </form>
+  </section>
+{% endblock %}

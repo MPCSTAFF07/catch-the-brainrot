@@ -186,3 +186,8 @@ td a { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   .login-accent { animation: none; }
 }
+
+.nav-group { margin: 12px 10px 2px; color: var(--muted); font-size: 12px; font-weight: 700; }
+@media (max-width: 650px) {
+  .nav-group { align-self: center; margin: 0 6px; }
+}

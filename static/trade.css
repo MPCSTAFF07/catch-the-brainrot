@@ -1,0 +1,113 @@
+.trade-page {
+  background: #160e20;
+  color: #faf4ff;
+  --trade-surface: #21152e;
+  --trade-border: #483357;
+  --trade-lime: #ddff61;
+  --trade-pink: #ff92d7;
+  --trade-muted: #cab9d7;
+}
+
+.trade-page .sidebar { background: #1c1127; border-color: var(--trade-border); }
+.trade-page .brand { color: var(--trade-lime); }
+.trade-page main { max-width: 1200px; }
+.trade-page .sidebar nav a:hover,
+.trade-page .sidebar nav a[aria-current] { background: #38224a; }
+.trade-page .sidebar nav a[aria-current] { color: var(--trade-lime); }
+.trade-page .nav-group, .trade-page .hint { color: var(--trade-muted); }
+
+.trade-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 224px;
+  margin-bottom: 24px;
+  padding: 28px;
+  border: 1px solid var(--trade-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, #2c113d 8%, rgb(44 17 61 / 88%) 42%, transparent 85%),
+    url("brainrot-login.webp") right 53% / auto 230% no-repeat,
+    #2c113d;
+}
+
+.trade-hero h1 {
+  margin: 0;
+  color: var(--trade-lime);
+  font-size: clamp(31px, 6vw, 54px);
+  font-weight: 950;
+  text-shadow: 3px 3px 0 #7a285e;
+}
+
+.trade-post, .trade-page main button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--trade-lime);
+  color: #1e1724;
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.trade-post:hover, .trade-page main button[type="submit"]:hover { filter: brightness(0.9); }
+.trade-page :focus-visible { outline: 2px solid var(--trade-pink); outline-offset: 4px; }
+.trade-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.trade-tabs a { border: 1px solid var(--trade-border); }
+.trade-tabs a[aria-current] { background: var(--trade-surface); border-color: var(--trade-lime); color: var(--trade-lime); }
+.trade-tabs a:hover { background: #38224a; }
+
+.trade-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 16px; }
+.trade-page input, .trade-page textarea {
+  background: #190f23;
+  border: 1px solid var(--trade-border);
+  color: inherit;
+}
+.trade-page input::placeholder, .trade-page textarea::placeholder { color: var(--trade-muted); }
+
+.offer-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+.offer, .trade-compose, .trade-empty {
+  padding: 18px;
+  background: var(--trade-surface);
+  border: 1px solid var(--trade-border);
+  border-radius: 8px;
+}
+.offer-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.offer-items > div { display: grid; align-content: start; gap: 5px; }
+.offer-items strong, .offer-author, .offer-note { overflow-wrap: anywhere; }
+.offer-items span { color: var(--trade-lime); font-size: 12px; font-weight: 750; }
+.offer-items > div:nth-child(2) span { color: var(--trade-pink); }
+.offer-note { margin: 14px 0 0; color: var(--trade-muted); font-size: 14px; white-space: pre-wrap; }
+.offer footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--trade-border);
+  font-size: 13px;
+  color: var(--trade-muted);
+}
+.offer footer a { color: #edcdff; }
+.trade-page main .offer button.quiet { min-height: 36px; border-color: var(--trade-border); background: transparent; color: #edcdff; }
+.trade-empty { margin: 0; color: var(--trade-muted); }
+.trade-pages { display: flex; gap: 14px; margin-top: 12px; }
+.trade-compose { margin-top: 24px; scroll-margin-top: 18px; }
+.trade-compose .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trade-compose textarea { width: 100%; padding: 8px 10px; border-radius: 4px; font: inherit; font-weight: 400; resize: vertical; }
+.trade-page .notice { background: var(--trade-surface); color: #faf4ff; border-color: var(--trade-border); }
+.trade-page .notice.success { color: var(--trade-lime); }
+.trade-page .notice.error { color: var(--trade-pink); }
+
+@media (max-width: 650px) {
+  .trade-hero { min-height: 176px; gap: 14px; align-items: end; padding: 18px; }
+  .trade-compose .fields { grid-template-columns: 1fr; }
+}
