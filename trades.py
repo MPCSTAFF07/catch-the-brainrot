@@ -13,7 +13,7 @@ DEAL_STATUS = {
 }
 
 
-def create_trade_board(db_path):
+def create_trade_board(db_path, fetch_profile_images=None):
     board = Blueprint("trade", __name__)
 
     @contextmanager
@@ -296,5 +296,5 @@ def create_trade_board(db_path):
                 abort(409)
         return redirect(url_for("trade.deal", deal_id=deal_id), code=303)
 
-    register_profiles(board, database)
+    register_profiles(board, database, fetch_profile_images)
     return board

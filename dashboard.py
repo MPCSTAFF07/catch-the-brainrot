@@ -175,6 +175,21 @@ class BotManager:
         self.gateway = asyncio.create_task(self.connect_gateway(bot))
 
     async def execute(self, action, form):
+        if action == "profile_images":
+            bot = self.bot
+            if bot is None or bot.is_closed():
+                return None
+            try:
+                user = await asyncio.wait_for(bot.fetch_user(int(form["user_id"])), timeout=4)
+            except (discord.DiscordException, asyncio.TimeoutError, OSError) as error:
+                LOG.info("Discordプロフィール画像を再取得できませんでした: %s", type(error).__name__)
+                return None
+            return {
+                "avatar": user.avatar.key if user.avatar else None,
+                "banner": user.banner.key if user.banner else None,
+                "discriminator": user.discriminator,
+            }
+
         async with self.lock:
             if action == "save":
                 guild_id = form.get("guild_id", "").strip()
@@ -251,7 +266,13 @@ def create_app(manager, admin):
         MAX_CONTENT_LENGTH=16 * 1024,
     )
     admins_lock = threading.Lock()
-    app.register_blueprint(create_trade_board(TRADE_DB))
+    def fetch_profile_images(user_id):
+        try:
+            return manager.call("profile_images", {"user_id": user_id})
+        except ValueError:
+            return None
+
+    app.register_blueprint(create_trade_board(TRADE_DB, fetch_profile_images))
 
     def allowed_ids():
         return read_settings(ADMIN_FILE).get("admin_ids", [])
