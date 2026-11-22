@@ -2,7 +2,7 @@
 {% from "trade_person.html" import person %}
 {% block title %}{{ item.offered }}の交換募集{% endblock %}
 {% block content %}
-  <a class="trade-back" href="{{ url_for('trade.index', mine=1 if own else none) }}">← {{ '自分の募集' if own else '交換を探す' }}</a>
+  <a class="trade-back" href="{{ url_for('trade.index') }}">← 戻る</a>
   <div class="offer-detail-layout{% if own %} is-own{% endif %}">
   <section class="trade-compose">
     <div class="offer-head">
