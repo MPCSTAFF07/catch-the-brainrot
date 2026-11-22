@@ -218,7 +218,9 @@ def register_profiles(board, database, fetch_profile_images=None):
     def profile_offers(db, user_id, section, limit, offset=0):
         if section == "liked":
             return db.execute(
-                """SELECT o.id, o.offered, o.wanted FROM trade_likes l JOIN trade_offers o ON o.id=l.offer_id
+                """SELECT o.id, o.offered, o.wanted,
+                          EXISTS(SELECT 1 FROM trade_offer_photos i WHERE i.offer_id=o.id) AS has_photo
+                   FROM trade_likes l JOIN trade_offers o ON o.id=l.offer_id
                    WHERE l.user_id=? ORDER BY l.rowid DESC LIMIT ? OFFSET ?""", (user_id, limit, offset),
             ).fetchall()
         return db.execute(

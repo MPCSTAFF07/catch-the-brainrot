@@ -94,9 +94,9 @@
   {% if own %}
   <section class="trade-compose profile-panel">
     <h2>いいねした募集</h2>
-    <div class="deal-list">
+    <div class="profile-offer-grid is-stacked">
       {% for offer in liked %}
-        <a href="{{ url_for('trade.offer', offer_id=offer.id) }}"><strong>{{ offer.offered }} ⇄ {{ offer.wanted }}</strong><span aria-hidden="true">↗</span></a>
+        {{ profile_offer(offer) }}
       {% else %}
         <p class="profile-empty">まだいいねした募集はありません。</p>
       {% endfor %}
