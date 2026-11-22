@@ -5,6 +5,7 @@ import sqlite3
 from flask import abort, flash, redirect, render_template, request, session, url_for
 
 USER_ID = re.compile(r"[1-9][0-9]{16,19}")
+AVATAR_HASH = re.compile(r"(?:a_)?[0-9a-f]{32}")
 WISH_LIMIT = 30
 
 
@@ -17,18 +18,25 @@ def save_profile(db, user_id, name):
     )
 
 
-def remember_profile(db_path, user_id, name):
+def remember_profile(db_path, user_id, name, avatar=None):
+    avatar = avatar if isinstance(avatar, str) and AVATAR_HASH.fullmatch(avatar) else None
     with closing(sqlite3.connect(db_path, timeout=8)) as db, db:
         save_profile(db, user_id, name)
+        db.execute(
+            "UPDATE trade_profiles SET avatar_hash=? WHERE user_id=? AND avatar_hash IS NOT ?",
+            (avatar, user_id, avatar),
+        )
 
 
 def register_profiles(board, database):
     with database(write=True) as db:
         db.execute("""
             CREATE TABLE IF NOT EXISTS trade_profiles (
-                user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL
+                user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL, avatar_hash TEXT
             )
         """)
+        if not any(row["name"] == "avatar_hash" for row in db.execute("PRAGMA table_info(trade_profiles)")):
+            db.execute("ALTER TABLE trade_profiles ADD COLUMN avatar_hash TEXT")
         db.execute("""
             INSERT OR IGNORE INTO trade_profiles(user_id, display_name)
             SELECT owner_id, owner_name FROM trade_offers ORDER BY id DESC
@@ -86,7 +94,7 @@ def register_profiles(board, database):
         own = user_id == me
         with database() as db:
             user = db.execute(
-                "SELECT display_name FROM trade_profiles WHERE user_id=?", (user_id,)
+                "SELECT display_name, avatar_hash FROM trade_profiles WHERE user_id=?", (user_id,)
             ).fetchone()
             if user is None:
                 abort(404)
@@ -123,7 +131,7 @@ def register_profiles(board, database):
             ).fetchall() if own else []
         return render_template(
             "trade_profile.html", uid=user_id, name=user["display_name"], own=own, stats=stats,
-            wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
+            avatar_hash=user["avatar_hash"], wishes=wishes, recent=recent, offers=offers, liked=liked, active="trade_profile",
         )
 
     @board.get("/profile/<user_id>/connections")

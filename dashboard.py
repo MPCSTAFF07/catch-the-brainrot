@@ -289,7 +289,7 @@ def create_app(manager, admin):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Content-Type-Options"] = "nosniff"
         policy = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
-        if request.endpoint == "reactions":
+        if request.endpoint in {"reactions", "trade.my_profile", "trade.profile"}:
             policy += "; img-src 'self' https://cdn.discordapp.com"
         response.headers["Content-Security-Policy"] = policy
         return response
@@ -352,7 +352,7 @@ def create_app(manager, admin):
         session["discord_name"] = str(profile.get("global_name") or profile.get("username") or user_id)[:100]
         session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
-        remember_profile(TRADE_DB, user_id, session["discord_name"])
+        remember_profile(TRADE_DB, user_id, session["discord_name"], profile.get("avatar"))
         return redirect(url_for("trade.index"), code=303)
 
     @app.get("/admins")

@@ -1,19 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ 'プロフィール' if own else name }}{% endblock %}
 {% block content %}
-  <header class="trade-compose profile-heading">
-    <div>
-      <h1>{{ name }}</h1>
-      {% if own %}<a class="trade-back" href="{{ url_for('trade.index', mine=1) }}">投稿済みの募集を管理</a>{% endif %}
+  <header class="profile-heading">
+    <div class="profile-cover" aria-hidden="true"></div>
+    <div class="profile-identity">
+      <div class="profile-avatar">
+        {% if avatar_hash %}
+          <img src="https://cdn.discordapp.com/avatars/{{ uid }}/{{ avatar_hash }}.png?size=128" alt="" width="96" height="96">
+        {% else %}
+          <span aria-hidden="true">{{ name[:1]|upper }}</span>
+        {% endif %}
+      </div>
+      <div class="profile-name">
+        <h1>{{ name }}</h1>
+        {% if own %}<a class="trade-back" href="{{ url_for('trade.index', mine=1) }}">投稿済みの募集を管理</a>{% endif %}
+      </div>
+      {% if not own %}
+      <form class="profile-follow" method="post" action="{{ url_for('trade.follow', user_id=uid) }}">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <button type="submit" name="action" value="{{ 'remove' if stats.followed else 'add' }}" {% if stats.followed %}class="trade-secondary"{% endif %}>
+          {{ 'フォロー解除' if stats.followed else '＋ フォロー' }}
+        </button>
+      </form>
+      {% endif %}
     </div>
-    {% if not own %}
-    <form class="profile-follow" method="post" action="{{ url_for('trade.follow', user_id=uid) }}">
-      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
-      <button type="submit" name="action" value="{{ 'remove' if stats.followed else 'add' }}" {% if stats.followed %}class="trade-secondary"{% endif %}>
-        {{ 'フォロー解除' if stats.followed else '＋ フォロー' }}
-      </button>
-    </form>
-    {% endif %}
     <div class="profile-stats">
       <div><strong>{{ stats.completed }}</strong><span>交換完了</span></div>
       <a href="{{ url_for('trade.connections', user_id=uid) }}"><strong>{{ stats.followers }}</strong><span>フォロワー</span></a>
