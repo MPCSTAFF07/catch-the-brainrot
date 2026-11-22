@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 import discord
 from discord import app_commands
+from discord.ext import tasks
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
@@ -50,6 +51,8 @@ class ReactionRoleBot(discord.Client):
         self.database = database
         self.tree = app_commands.CommandTree(self)
         self.locks = [asyncio.Lock() for _ in range(64)]
+        self.counter_lock = asyncio.Lock()
+        self.counter_error = ""
         database.execute("""
             CREATE TABLE IF NOT EXISTS reaction_roles (
                 channel_id TEXT NOT NULL,
@@ -60,7 +63,101 @@ class ReactionRoleBot(discord.Client):
                 PRIMARY KEY (channel_id, message_id, emoji_key)
             )
         """)
+        database.execute("""
+            CREATE TABLE IF NOT EXISTS member_counter (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                channel_id TEXT NOT NULL,
+                last_count INTEGER
+            )
+        """)
         database.commit()
+
+    def counter_state(self, guild):
+        saved = self.database.execute(
+            "SELECT channel_id, last_count FROM member_counter WHERE id=1"
+        ).fetchone()
+        channels = []
+        if guild is not None and guild.me is not None:
+            channels = [
+                (str(channel.id), channel.name)
+                for channel in guild.voice_channels
+                if channel.permissions_for(guild.me).manage_channels
+            ]
+        return {
+            "channel_id": saved[0] if saved else "",
+            "last_count": saved[1] if saved else None,
+            "channels": channels,
+            "error": self.counter_error,
+        }
+
+    async def configure_counter(self, guild, channel_id):
+        async with self.counter_lock:
+            if not channel_id:
+                with self.database:
+                    self.database.execute("DELETE FROM member_counter WHERE id=1")
+                self.counter_error = ""
+                return
+            channel = guild.get_channel(int(channel_id)) if guild and re.fullmatch(r"[0-9]{17,20}", channel_id) else None
+            if not isinstance(channel, discord.VoiceChannel) or guild.me is None:
+                raise ValueError("このサーバーのボイスチャンネルを選んでください。")
+            if not channel.permissions_for(guild.me).manage_channels:
+                raise ValueError("Botに対象チャンネルの「チャンネルの管理」権限を付けてください。")
+            with self.database:
+                self.database.execute(
+                    """INSERT INTO member_counter(id, channel_id) VALUES (1, ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         last_count = CASE WHEN channel_id = excluded.channel_id THEN last_count END,
+                         channel_id = excluded.channel_id""",
+                    (channel_id,),
+                )
+            await self.refresh_member_counter(guild, channel, channel_id)
+
+    async def refresh_member_counter(self, guild, channel, channel_id):
+        try:
+            snapshot = await self.fetch_guild(guild.id, with_counts=True)
+            count = snapshot.approximate_member_count
+            if count is None:
+                self.counter_error = "Discordから人数を取得できませんでした。次回の更新で再試行します。"
+                return
+            desired_name = f"👥 MEMBERS: {count}"
+            if channel.name != desired_name:
+                await channel.edit(name=desired_name, reason="メンバー数の自動表示")
+            with self.database:
+                self.database.execute("UPDATE member_counter SET last_count=? WHERE id=1 AND channel_id=?", (count, channel_id))
+            self.counter_error = ""
+        except discord.Forbidden:
+            self.counter_error = "Botに対象チャンネルの「チャンネルの管理」権限を付けてください。"
+        except discord.HTTPException as error:
+            self.counter_error = "Discordとの通信に失敗しました。次回の更新で再試行します。"
+            LOG.warning("メンバー数の更新に失敗: status=%s", error.status)
+
+    @tasks.loop(minutes=5)
+    async def member_counter_loop(self):
+        if not self.is_ready():
+            return
+        async with self.counter_lock:
+            saved = self.database.execute("SELECT channel_id FROM member_counter WHERE id=1").fetchone()
+            if not saved:
+                return
+            channel_id = saved[0]
+            guild = self.get_guild(self.guild_id)
+            if guild is None or guild.unavailable or guild.me is None:
+                return
+            channel = guild.get_channel(int(channel_id))
+            if not isinstance(channel, discord.VoiceChannel):
+                self.counter_error = "対象のボイスチャンネルが見つかりません。表示先を選び直してください。"
+                return
+            if not channel.permissions_for(guild.me).manage_channels:
+                self.counter_error = "Botに対象チャンネルの「チャンネルの管理」権限を付けてください。"
+                return
+            await self.refresh_member_counter(guild, channel, channel_id)
+
+    async def close(self):
+        task = self.member_counter_loop.get_task()
+        if task is not None:
+            self.member_counter_loop.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await super().close()
 
     def message_lock(self, message_id: int) -> asyncio.Lock:
         return self.locks[message_id % len(self.locks)]
@@ -72,6 +169,8 @@ class ReactionRoleBot(discord.Client):
 
     async def on_ready(self) -> None:
         LOG.info("ログイン完了: %s / サーバーID %d", self.user, self.guild_id)
+        if not self.member_counter_loop.is_running():
+            self.member_counter_loop.start()
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         await self.change_role(payload, add=True)

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}メンバー数表示{% endblock %}
+{% block content %}
+  {% set counter = state.counter %}
+  <h1>メンバー数表示</h1>
+  {% if not state.connected %}
+    <p class="notice">Botの接続を確認してください。 <a href="{{ url_for('settings') }}">Bot設定</a></p>
+  {% endif %}
+  {% if counter and counter.error %}<p class="notice error" role="status">{{ counter.error }}</p>{% endif %}
+  <section class="panel">
+    <h2>表示先</h2>
+    <p class="hint">Discordの概算人数を約5分おきに確認し、変わったときだけチャンネル名を更新します。</p>
+    {% if counter and counter.last_count is not none %}
+      <p>前回の表示 <strong>👥 MEMBERS: {{ counter.last_count }}</strong></p>
+    {% endif %}
+    {% if counter and counter.channels %}
+      <form method="post" class="form">
+        <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+        <label>ボイスチャンネル
+          <select name="channel_id" required>
+            <option value="">チャンネルを選択</option>
+            {% for id, name in counter.channels %}
+              <option value="{{ id }}" {% if counter.channel_id == id %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">保存して表示</button>
+      </form>
+    {% elif state.connected %}
+      <p class="hint">表示用のボイスチャンネルを作成し、Botに「チャンネルの管理」権限を付けてください。</p>
+    {% endif %}
+  </section>
+  {% if counter and counter.channel_id %}
+    <form method="post">
+      <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+      <button class="quiet danger" type="submit" name="counter_action" value="disable">自動更新を停止</button>
+    </form>
+  {% endif %}
+{% endblock %}

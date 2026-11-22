@@ -189,6 +189,14 @@ class BotManager:
 
             bot = self.bot
             guild = bot.get_guild(bot.guild_id) if bot and bot.is_ready() else None
+            if action in {"counter_save", "counter_disable"}:
+                if bot is None or (action == "counter_save" and guild is None):
+                    raise ValueError("BotがDiscordに接続してから設定してください。")
+                channel_id = form.get("channel_id", "").strip() if action == "counter_save" else ""
+                if action == "counter_save" and not channel_id:
+                    raise ValueError("表示するボイスチャンネルを選んでください。")
+                await bot.configure_counter(guild, channel_id)
+
             if action == "add":
                 if guild is None:
                     raise ValueError("BotがDiscordに接続してから登録してください。")
@@ -216,6 +224,7 @@ class BotManager:
                     if emoji.is_usable()
                 ] if action == "reactions" and guild is not None and guild.me is not None else [],
                 "bindings": bot.bindings() if bot else [],
+                "counter": bot.counter_state(guild) if action == "counter" and bot else None,
             }
 
     def call(self, action, values):
@@ -411,6 +420,17 @@ def create_app(manager, admin):
     def remove():
         submit("remove", "登録を解除しました。付与済みのロールはそのままです。")
         return redirect(url_for("reactions"), code=303)
+
+    @app.route("/member-counter", methods=["GET", "POST"])
+    @admin_required
+    def member_counter():
+        if request.method == "POST":
+            if request.form.get("counter_action") == "disable":
+                submit("counter_disable", "メンバー数の自動更新を停止しました。")
+            else:
+                submit("counter_save", "メンバー数の表示先を保存しました。")
+            return redirect(url_for("member_counter"), code=303)
+        return render_template("member_counter.html", state=manager.call("counter", {}), active="member_counter")
 
     @app.route("/settings", methods=["GET", "POST"])
     @admin_required
