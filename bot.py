@@ -200,17 +200,25 @@ class ReactionRoleBot(discord.Client):
         await self.change_role(payload, add=False)
 
     async def change_role(self, payload: discord.RawReactionActionEvent, *, add: bool) -> None:
-        if payload.guild_id != self.guild_id or payload.burst:
+        if payload.guild_id != self.guild_id:
             return
         if self.user is None or payload.user_id == self.user.id:
             return
 
         async with self.message_lock(payload.message_id):
+            message_key = (str(payload.channel_id), str(payload.message_id))
             binding = self.database.execute(
                 "SELECT role_id FROM reaction_roles WHERE channel_id=? AND message_id=? AND emoji_key=?",
-                (str(payload.channel_id), str(payload.message_id), emoji_key(payload.emoji)),
+                (*message_key, emoji_key(payload.emoji)),
             ).fetchone()
             if binding is None:
+                if add and self.database.execute(
+                    "SELECT 1 FROM reaction_roles WHERE channel_id=? AND message_id=? LIMIT 1",
+                    message_key,
+                ).fetchone():
+                    await self.clear_unregistered_reaction(payload)
+                return
+            if payload.burst:
                 return
 
             guild = self.get_guild(self.guild_id)
@@ -233,6 +241,18 @@ class ReactionRoleBot(discord.Client):
                 return
             except discord.HTTPException:
                 LOG.exception("ロール操作失敗: member_id=%s role_id=%s", payload.user_id, role.id)
+
+    async def clear_unregistered_reaction(self, payload: discord.RawReactionActionEvent) -> None:
+        channel = self.get_partial_messageable(payload.channel_id, guild_id=self.guild_id)
+        message = channel.get_partial_message(payload.message_id)
+        try:
+            await message.clear_reaction(payload.emoji)
+        except discord.NotFound:
+            return
+        except discord.Forbidden:
+            LOG.warning("指定外リアクションの削除には「メッセージの管理」権限が必要です: channel_id=%s", payload.channel_id)
+        except discord.HTTPException as error:
+            LOG.warning("指定外リアクションの削除に失敗しました: message_id=%s status=%s", payload.message_id, error.status)
 
     async def add_binding(self, message_link: str, emoji: str, role: discord.Role) -> None:
         channel_id, message_id = parse_message_link(message_link, self.guild_id)
