@@ -74,6 +74,9 @@
   <section class="panel">
     <h2>登録済み</h2>
     {% if state.bindings %}
+    {% if state.connected and state.bindings|selectattr('4')|list %}
+    <p class="hint">過去の反応への適用では、指定の絵文字を押していて、両方のロールを持つ人から対象ロールを外します。</p>
+    {% endif %}
     <div class="table-wrap">
       <table>
         <thead><tr><th>絵文字</th><th>付与するロール</th><th>付与後に外すロール</th><th>メッセージ</th><th>操作</th></tr></thead>
@@ -97,6 +100,25 @@
                 </select>
                 <button type="submit" class="quiet">保存</button>
               </form>
+              {% if remove_role %}
+              {% set result = state.existing_removals.get(role) %}
+              <form method="post" action="{{ url_for('apply_existing_removal') }}">
+                <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+                <input type="hidden" name="role" value="{{ role }}">
+                <input type="hidden" name="remove_role" value="{{ remove_role }}">
+                <button type="submit" class="quiet"{% if state.existing_removal_running %} disabled{% endif %}>過去の反応にも適用</button>
+              </form>
+              {% if result and result.remove_role_id == remove_role %}
+              <p class="hint" role="status">
+                {% if result.running %}
+                  処理中。解除 {{ result.removed }} 人。<a href="{{ url_for('reactions') }}">結果を更新</a>
+                {% else %}
+                  解除 {{ result.removed }} 人{% if result.failed %}、失敗 {{ result.failed }} 人{% endif %}。
+                  {% if result.error %} {{ result.error }}{% endif %}
+                {% endif %}
+              </p>
+              {% endif %}
+              {% endif %}
               {% elif remove_role %}{{ state.roles.get(remove_role, remove_role) }}
               {% else %}外さない{% endif %}
             </td>

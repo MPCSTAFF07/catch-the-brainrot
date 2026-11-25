@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
@@ -15,6 +16,15 @@ ROOT = Path(__file__).resolve().parent
 LOG = logging.getLogger("reaction_roles")
 MESSAGE_PATH = re.compile(r"/channels/([0-9]{17,20})/([0-9]{17,20})/([0-9]{17,20})")
 CUSTOM_EMOJI = re.compile(r"<a?:[A-Za-z0-9_]+:([0-9]{17,20})>")
+
+
+@dataclass
+class ExistingRoleRemoval:
+    remove_role_id: str
+    running: bool = True
+    removed: int = 0
+    failed: int = 0
+    error: str = ""
 
 
 def parse_message_link(link: str, guild_id: int) -> tuple[int, int]:
@@ -52,6 +62,8 @@ class ReactionRoleBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
         self.locks = [asyncio.Lock() for _ in range(64)]
         self.member_role_locks = [asyncio.Lock() for _ in range(64)]
+        self.existing_role_removals: dict[str, ExistingRoleRemoval] = {}
+        self.existing_role_removal_task: asyncio.Task[None] | None = None
         self.counter_lock = asyncio.Lock()
         self.counter_error = ""
         database.execute("""
@@ -185,6 +197,9 @@ class ReactionRoleBot(discord.Client):
             if task is not None:
                 loop.cancel()
                 pending.append(task)
+        if self.existing_role_removal_running():
+            self.existing_role_removal_task.cancel()
+            pending.append(self.existing_role_removal_task)
         await asyncio.gather(*pending, return_exceptions=True)
         await super().close()
 
@@ -369,6 +384,77 @@ class ReactionRoleBot(discord.Client):
             "SELECT channel_id, message_id, emoji_label, role_id, remove_role_id "
             "FROM reaction_roles ORDER BY channel_id, message_id"
         ).fetchall()
+
+    def existing_role_removal_running(self) -> bool:
+        return self.existing_role_removal_task is not None and not self.existing_role_removal_task.done()
+
+    def get_removal_binding(self, role_id: str) -> tuple[str, str, str, str | None] | None:
+        return self.database.execute(
+            "SELECT channel_id, message_id, emoji_key, remove_role_id FROM reaction_roles WHERE role_id=?",
+            (role_id,),
+        ).fetchone()
+
+    def start_existing_role_removal(self, guild: discord.Guild, role_id: str, expected_remove_role_id: str) -> None:
+        if self.existing_role_removal_running():
+            raise ValueError("過去の反応への適用が進行中です。完了してから再実行してください。")
+        binding = self.get_removal_binding(role_id)
+        if binding is None or not binding[3] or binding[3] != expected_remove_role_id:
+            raise ValueError("外すロールの設定を確認し、画面を更新してください。")
+        grant_role = guild.get_role(int(role_id))
+        remove_role = guild.get_role(int(binding[3]))
+        if grant_role is None or remove_role is None:
+            raise ValueError("設定済みのロールが見つかりません。")
+        self.removal_role_id(role_id, remove_role)
+
+        result = ExistingRoleRemoval(binding[3])
+        self.existing_role_removals[role_id] = result
+        self.existing_role_removal_task = asyncio.create_task(
+            self.apply_existing_role_removal(guild, grant_role, remove_role, binding, result),
+        )
+
+    async def apply_existing_role_removal(
+        self, guild: discord.Guild, grant_role: discord.Role, remove_role: discord.Role,
+        binding: tuple[str, str, str, str | None], result: ExistingRoleRemoval,
+    ) -> None:
+        channel_id, message_id, key, _ = binding
+        role_id = str(grant_role.id)
+        lock = self.message_lock(int(message_id))
+        try:
+            channel = self.get_partial_messageable(int(channel_id), guild_id=self.guild_id)
+            message = await channel.fetch_message(int(message_id))
+            reaction = next((item for item in message.reactions if emoji_key(item.emoji) == key), None)
+            if reaction is None:
+                return
+            async for user in reaction.users(limit=None, type=discord.ReactionType.normal):
+                if user.bot:
+                    continue
+                async with lock, self.member_role_locks[user.id % len(self.member_role_locks)]:
+                    if self.get_removal_binding(role_id) != binding:
+                        result.error = "設定が変更されたため、処理を停止しました。"
+                        return
+                    try:
+                        member = await guild.fetch_member(user.id)
+                        if member.get_role(grant_role.id) is None or member.get_role(remove_role.id) is None:
+                            continue
+                        await member.remove_roles(remove_role, reason="既存のリアクションロールへの適用")
+                    except discord.NotFound:
+                        continue
+                    except discord.HTTPException as error:
+                        LOG.warning("既存ロールの解除に失敗: member_id=%s role_id=%s status=%s", user.id, remove_role.id, error.status)
+                        result.failed += 1
+                    else:
+                        result.removed += 1
+        except discord.HTTPException as error:
+            LOG.warning("既存リアクションの取得に失敗: message_id=%s status=%s", message_id, error.status)
+            result.error = "リアクションを取得できませんでした。メッセージとBotの履歴閲覧権限を確認してください。"
+        except asyncio.CancelledError:
+            result.error = "処理を中断しました。"
+            raise
+        except Exception:
+            LOG.exception("既存のリアクションロールへの適用に失敗: message_id=%s", message_id)
+            result.error = "処理に失敗しました。Botのログを確認してください。"
+        finally:
+            result.running = False
 
     async def set_removal_role(self, role_id: str, remove_role: discord.Role | None) -> None:
         remove_role_id = self.removal_role_id(role_id, remove_role)

@@ -456,6 +456,15 @@ class BotManager:
             if action == "remove":
                 if bot is None or not await bot.remove_binding(form.get("role", "")):
                     raise ValueError("登録が見つかりません。")
+            if action == "apply_existing_removal":
+                if guild is None or guild.unavailable:
+                    raise ValueError("BotがDiscordに接続してから実行してください。")
+                role_id = form.get("role", "")
+                remove_role_id = form.get("remove_role", "")
+                if not DISCORD_ID.fullmatch(role_id) or not DISCORD_ID.fullmatch(remove_role_id):
+                    raise ValueError("対象のロール設定を確認してください。")
+                bot.start_existing_role_removal(guild, role_id, remove_role_id)
+                return
 
             roles = {}
             if guild is not None:
@@ -473,6 +482,9 @@ class BotManager:
                     if emoji.is_usable()
                 ] if action == "reactions" and guild is not None and guild.me is not None else [],
                 "bindings": bot.bindings() if bot else [],
+                "existing_removals": {role: vars(result).copy() for role, result in bot.existing_role_removals.items()}
+                if action == "reactions" and bot else {},
+                "existing_removal_running": action == "reactions" and bot is not None and bot.existing_role_removal_running(),
                 "counter": bot.counter_state(guild) if action == "counter" and bot else None,
             }
 
@@ -715,6 +727,12 @@ def create_app(manager, admin):
     @admin_required
     def set_remove_role():
         submit("set_remove_role", "付与後に外すロールの設定を保存しました。")
+        return redirect(url_for("reactions"), code=303)
+
+    @app.post("/reactions/apply-existing-removal")
+    @admin_required
+    def apply_existing_removal():
+        submit("apply_existing_removal", "過去の反応への適用を開始しました。")
         return redirect(url_for("reactions"), code=303)
 
     @app.post("/reactions/remove")
