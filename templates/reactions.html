@@ -58,6 +58,12 @@
             </select>
           </label>
         </div>
+        <label>付与後に外すロール（任意）
+          <select name="remove_role">
+            <option value="">外さない</option>
+            {% for id, name in state.roles.items() %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
+          </select>
+        </label>
         <button type="submit">登録</button>
       </form>
       {% else %}
@@ -70,11 +76,30 @@
     {% if state.bindings %}
     <div class="table-wrap">
       <table>
-        <thead><tr><th>絵文字</th><th>ロール</th><th>メッセージ</th><th>操作</th></tr></thead>
+        <thead><tr><th>絵文字</th><th>付与するロール</th><th>付与後に外すロール</th><th>メッセージ</th><th>操作</th></tr></thead>
         <tbody>
-        {% for channel, message, emoji, role in state.bindings %}
+        {% for channel, message, emoji, role, remove_role in state.bindings %}
           <tr>
             <td>{{ emoji }}</td><td>{{ state.roles.get(role, role) }}</td>
+            <td>
+              {% if state.connected %}
+              <form method="post" action="{{ url_for('set_remove_role') }}" class="form">
+                <input type="hidden" name="csrf" value="{{ session['csrf'] }}">
+                <input type="hidden" name="role" value="{{ role }}">
+                <select name="remove_role" aria-label="{{ state.roles.get(role, role) }}の付与後に外すロール">
+                  <option value="">外さない</option>
+                  {% if remove_role and remove_role not in state.roles %}
+                  <option value="{{ remove_role }}" selected>{{ remove_role }}</option>
+                  {% endif %}
+                  {% for id, name in state.roles.items() if id != role %}
+                  <option value="{{ id }}"{% if id == remove_role %} selected{% endif %}>{{ name }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="quiet">保存</button>
+              </form>
+              {% elif remove_role %}{{ state.roles.get(remove_role, remove_role) }}
+              {% else %}外さない{% endif %}
+            </td>
             <td><a href="https://discord.com/channels/{{ state.guild_id }}/{{ channel }}/{{ message }}">Discordで開く</a></td>
             <td><form method="post" action="{{ url_for('remove') }}">
               <input type="hidden" name="csrf" value="{{ session['csrf'] }}">

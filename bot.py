@@ -51,6 +51,7 @@ class ReactionRoleBot(discord.Client):
         self.database = database
         self.tree = app_commands.CommandTree(self)
         self.locks = [asyncio.Lock() for _ in range(64)]
+        self.member_role_locks = [asyncio.Lock() for _ in range(64)]
         self.counter_lock = asyncio.Lock()
         self.counter_error = ""
         database.execute("""
@@ -60,9 +61,13 @@ class ReactionRoleBot(discord.Client):
                 emoji_key TEXT NOT NULL,
                 emoji_label TEXT NOT NULL,
                 role_id TEXT NOT NULL UNIQUE,
+                remove_role_id TEXT,
                 PRIMARY KEY (channel_id, message_id, emoji_key)
             )
         """)
+        columns = {column[1] for column in database.execute("PRAGMA table_info(reaction_roles)")}
+        if "remove_role_id" not in columns:
+            database.execute("ALTER TABLE reaction_roles ADD COLUMN remove_role_id TEXT")
         database.execute("""
             CREATE TABLE IF NOT EXISTS member_counter (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -242,7 +247,7 @@ class ReactionRoleBot(discord.Client):
         async with self.message_lock(payload.message_id):
             message_key = (str(payload.channel_id), str(payload.message_id))
             binding = self.database.execute(
-                "SELECT role_id FROM reaction_roles WHERE channel_id=? AND message_id=? AND emoji_key=?",
+                "SELECT role_id, remove_role_id FROM reaction_roles WHERE channel_id=? AND message_id=? AND emoji_key=?",
                 (*message_key, emoji_key(payload.emoji)),
             ).fetchone()
             if binding is None:
@@ -266,17 +271,32 @@ class ReactionRoleBot(discord.Client):
                 return
 
             try:
-                member = payload.member or await guild.fetch_member(payload.user_id)
-                if member.bot:
-                    return
-                if add:
-                    await member.add_roles(role, reason="リアクションロール")
-                else:
-                    await member.remove_roles(role, reason="リアクションロール")
+                async with self.member_role_locks[payload.user_id % len(self.member_role_locks)]:
+                    member = payload.member or await guild.fetch_member(payload.user_id)
+                    if member.bot:
+                        return
+                    if add:
+                        await member.add_roles(role, reason="リアクションロール")
+                        if binding[1] is not None:
+                            await self.remove_role_after_grant(member, guild, binding[1])
+                    else:
+                        await member.remove_roles(role, reason="リアクションロール")
             except discord.NotFound:
                 return
             except discord.HTTPException:
                 LOG.exception("ロール操作失敗: member_id=%s role_id=%s", payload.user_id, role.id)
+
+    async def remove_role_after_grant(self, member: discord.Member, guild: discord.Guild, role_id: str) -> None:
+        role = guild.get_role(int(role_id))
+        if role is None or not role.is_assignable():
+            LOG.warning("付与後に外すロールを操作できません: role_id=%s", role_id)
+            return
+        try:
+            await member.remove_roles(role, reason="リアクションロール付与後の解除")
+        except discord.NotFound:
+            return
+        except discord.HTTPException:
+            LOG.exception("付与後のロール解除に失敗: member_id=%s role_id=%s", member.id, role_id)
 
     async def clear_unregistered_reaction(
         self, message: discord.PartialMessage, emoji: str | discord.Emoji | discord.PartialEmoji,
@@ -290,18 +310,37 @@ class ReactionRoleBot(discord.Client):
         except discord.HTTPException as error:
             LOG.warning("指定外リアクションの削除に失敗しました: message_id=%s status=%s", message.id, error.status)
 
-    async def add_binding(self, message_link: str, emoji: str, role: discord.Role) -> None:
+    def removal_role_id(self, grant_role_id: str, remove_role: discord.Role | None) -> str | None:
+        if remove_role is None:
+            return None
+        if str(remove_role.id) == grant_role_id:
+            raise ValueError("付与するロールと、外すロールには別のロールを選んでください。")
+        if (
+            remove_role.guild.id != self.guild_id
+            or not remove_role.is_assignable()
+            or not remove_role.guild.me.guild_permissions.manage_roles
+        ):
+            raise ValueError("Botにロールの管理権限を付け、外すロールをBotのロールより下に置いてください。")
+        return str(remove_role.id)
+
+    async def add_binding(
+        self, message_link: str, emoji: str, role: discord.Role, remove_role: discord.Role | None = None,
+    ) -> None:
         channel_id, message_id = parse_message_link(message_link, self.guild_id)
         emoji = emoji.strip()
         key = emoji_key(emoji)
         if not role.is_assignable() or not role.guild.me.guild_permissions.manage_roles:
             raise ValueError("Botにロールの管理権限を付け、Botのロールを対象ロールより上に置いてください。")
+        remove_role_id = self.removal_role_id(str(role.id), remove_role)
 
         async with self.message_lock(message_id):
             values = (str(channel_id), str(message_id), key, emoji, str(role.id))
             try:
                 with self.database:
-                    self.database.execute("INSERT INTO reaction_roles VALUES (?, ?, ?, ?, ?)", values)
+                    self.database.execute(
+                        "INSERT INTO reaction_roles (channel_id, message_id, emoji_key, emoji_label, role_id, remove_role_id) "
+                        "VALUES (?, ?, ?, ?, ?, ?)", (*values, remove_role_id),
+                    )
             except sqlite3.IntegrityError as error:
                 raise ValueError("このメッセージの絵文字、またはこのロールは登録済みです。") from error
 
@@ -325,10 +364,27 @@ class ReactionRoleBot(discord.Client):
                             values[:3],
                         )
 
-    def bindings(self) -> list[tuple[str, str, str, str]]:
+    def bindings(self) -> list[tuple[str, str, str, str, str | None]]:
         return self.database.execute(
-            "SELECT channel_id, message_id, emoji_label, role_id FROM reaction_roles ORDER BY channel_id, message_id"
+            "SELECT channel_id, message_id, emoji_label, role_id, remove_role_id "
+            "FROM reaction_roles ORDER BY channel_id, message_id"
         ).fetchall()
+
+    async def set_removal_role(self, role_id: str, remove_role: discord.Role | None) -> None:
+        remove_role_id = self.removal_role_id(role_id, remove_role)
+        binding = self.database.execute(
+            "SELECT message_id FROM reaction_roles WHERE role_id=?", (role_id,),
+        ).fetchone()
+        if binding is None:
+            raise ValueError("登録が見つかりません。")
+        async with self.message_lock(int(binding[0])):
+            with self.database:
+                result = self.database.execute(
+                    "UPDATE reaction_roles SET remove_role_id=? WHERE role_id=? AND message_id=?",
+                    (remove_role_id, role_id, binding[0]),
+                )
+            if not result.rowcount:
+                raise ValueError("登録が見つかりません。")
 
     async def remove_binding(self, role_id: str) -> bool:
         binding = self.database.execute(
@@ -371,17 +427,36 @@ class ReactionRoleCommands(app_commands.Group, name="reaction-role", description
             await interaction.response.send_message(message, ephemeral=True)
 
     @app_commands.command(name="add", description="既存メッセージにリアクションとロールを登録")
-    @app_commands.describe(message_link="対象のメッセージリンク", emoji="通常絵文字またはカスタム絵文字", role="付与するロール")
+    @app_commands.describe(
+        message_link="対象のメッセージリンク", emoji="通常絵文字またはカスタム絵文字",
+        role="付与するロール", remove_role="付与後に外すロール（任意）",
+    )
     async def add(
-        self, interaction: discord.Interaction, message_link: str, emoji: str, role: discord.Role
+        self, interaction: discord.Interaction, message_link: str, emoji: str, role: discord.Role,
+        remove_role: discord.Role | None = None,
     ) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            await self.bot.add_binding(message_link, emoji, role)
+            await self.bot.add_binding(message_link, emoji, role, remove_role)
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
         else:
-            await interaction.followup.send(f"{emoji} → {role.mention} を登録しました。", ephemeral=True)
+            removal = f" 付与後に {remove_role.mention} を外します。" if remove_role else ""
+            await interaction.followup.send(f"{emoji} → {role.mention} を登録しました。{removal}", ephemeral=True)
+
+    @app_commands.command(name="set-remove-role", description="付与後に外すロールを設定または解除する")
+    @app_commands.describe(role="登録済みの付与ロール", remove_role="付与後に外すロール（省略すると設定解除）")
+    async def set_remove_role(
+        self, interaction: discord.Interaction, role: discord.Role, remove_role: discord.Role | None = None,
+    ) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            await self.bot.set_removal_role(str(role.id), remove_role)
+        except ValueError as error:
+            message = str(error)
+        else:
+            message = f"{role.mention} の付与後に {remove_role.mention} を外します。" if remove_role else "設定を解除しました。"
+        await interaction.followup.send(message, ephemeral=True)
 
     @app_commands.command(name="remove", description="登録を解除する（付与済みのロールは維持）")
     @app_commands.describe(role="登録を解除するロール")
@@ -402,9 +477,10 @@ class ReactionRoleCommands(app_commands.Group, name="reaction-role", description
 
         pages: list[str] = []
         page = ""
-        for channel_id, message_id, emoji, role_id in rows:
+        for channel_id, message_id, emoji, role_id, remove_role_id in rows:
             url = f"https://discord.com/channels/{self.bot.guild_id}/{channel_id}/{message_id}"
-            line = f"{emoji} → <@&{role_id}> · [メッセージ]({url})\n"
+            removal = f" · 外す <@&{remove_role_id}>" if remove_role_id else ""
+            line = f"{emoji} → <@&{role_id}>{removal} · [メッセージ]({url})\n"
             if len(page) + len(line) > 1800:
                 pages.append(page)
                 page = ""

@@ -436,14 +436,23 @@ class BotManager:
                     raise ValueError("表示するボイスチャンネルを選んでください。")
                 await bot.configure_counter(guild, channel_id)
 
-            if action == "add":
+            if action in {"add", "set_remove_role"}:
                 if guild is None:
                     raise ValueError("BotがDiscordに接続してから登録してください。")
                 role_id = form.get("role", "")
-                role = guild.get_role(int(role_id)) if re.fullmatch(r"[0-9]{17,20}", role_id) else None
-                if role is None:
+                if not DISCORD_ID.fullmatch(role_id):
                     raise ValueError("このサーバーのロールを選択してください。")
-                await bot.add_binding(form.get("message_link", ""), form.get("emoji", ""), role)
+                remove_role_id = form.get("remove_role", "")
+                remove_role = guild.get_role(int(remove_role_id)) if DISCORD_ID.fullmatch(remove_role_id) else None
+                if remove_role_id and remove_role is None:
+                    raise ValueError("このサーバーから外すロールを選択してください。")
+                if action == "add":
+                    role = guild.get_role(int(role_id))
+                    if role is None:
+                        raise ValueError("このサーバーのロールを選択してください。")
+                    await bot.add_binding(form.get("message_link", ""), form.get("emoji", ""), role, remove_role)
+                else:
+                    await bot.set_removal_role(role_id, remove_role)
             if action == "remove":
                 if bot is None or not await bot.remove_binding(form.get("role", "")):
                     raise ValueError("登録が見つかりません。")
@@ -700,6 +709,12 @@ def create_app(manager, admin):
     @admin_required
     def add():
         submit("add", "リアクションロールを登録しました。")
+        return redirect(url_for("reactions"), code=303)
+
+    @app.post("/reactions/set-remove-role")
+    @admin_required
+    def set_remove_role():
+        submit("set_remove_role", "付与後に外すロールの設定を保存しました。")
         return redirect(url_for("reactions"), code=303)
 
     @app.post("/reactions/remove")
