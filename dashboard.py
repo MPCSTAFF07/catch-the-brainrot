@@ -461,9 +461,14 @@ class BotManager:
                     raise ValueError("BotがDiscordに接続してから実行してください。")
                 role_id = form.get("role", "")
                 remove_role_id = form.get("remove_role", "")
-                if not DISCORD_ID.fullmatch(role_id) or not DISCORD_ID.fullmatch(remove_role_id):
+                mode = form.get("mode", "remove")
+                if (
+                    not DISCORD_ID.fullmatch(role_id)
+                    or (remove_role_id and not DISCORD_ID.fullmatch(remove_role_id))
+                    or mode not in {"sync", "remove"}
+                ):
                     raise ValueError("対象のロール設定を確認してください。")
-                bot.start_existing_role_removal(guild, role_id, remove_role_id)
+                bot.start_reaction_role_sync(guild, role_id, remove_role_id or None, grant_missing=mode == "sync")
                 return
 
             roles = {}
@@ -482,9 +487,9 @@ class BotManager:
                     if emoji.is_usable()
                 ] if action == "reactions" and guild is not None and guild.me is not None else [],
                 "bindings": bot.bindings() if bot else [],
-                "existing_removals": {role: vars(result).copy() for role, result in bot.existing_role_removals.items()}
+                "reaction_role_syncs": {role: vars(result).copy() for role, result in bot.reaction_role_syncs.items()}
                 if action == "reactions" and bot else {},
-                "existing_removal_running": action == "reactions" and bot is not None and bot.existing_role_removal_running(),
+                "reaction_role_sync_running": action == "reactions" and bot is not None and bot.reaction_role_sync_running(),
                 "counter": bot.counter_state(guild) if action == "counter" and bot else None,
             }
 
@@ -732,7 +737,7 @@ def create_app(manager, admin):
     @app.post("/reactions/apply-existing-removal")
     @admin_required
     def apply_existing_removal():
-        submit("apply_existing_removal", "過去の反応への適用を開始しました。")
+        submit("apply_existing_removal", "過去の反応の処理を開始しました。")
         return redirect(url_for("reactions"), code=303)
 
     @app.post("/reactions/remove")
