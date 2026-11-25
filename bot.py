@@ -27,8 +27,8 @@ def parse_message_link(link: str, guild_id: int) -> tuple[int, int]:
     return int(match[2]), int(match[3])
 
 
-def emoji_key(emoji: str | discord.PartialEmoji) -> str:
-    if isinstance(emoji, discord.PartialEmoji):
+def emoji_key(emoji: str | discord.Emoji | discord.PartialEmoji) -> str:
+    if isinstance(emoji, (discord.Emoji, discord.PartialEmoji)):
         if emoji.id is not None:
             return f"custom:{emoji.id}"
         emoji = emoji.name
@@ -174,10 +174,13 @@ class ReactionRoleBot(discord.Client):
             await self.refresh_member_counter(guild, channel, channel_id)
 
     async def close(self):
-        task = self.member_counter_loop.get_task()
-        if task is not None:
-            self.member_counter_loop.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+        pending = []
+        for loop in (self.member_counter_loop, self.remove_existing_unregistered_reactions):
+            task = loop.get_task()
+            if task is not None:
+                loop.cancel()
+                pending.append(task)
+        await asyncio.gather(*pending, return_exceptions=True)
         await super().close()
 
     def message_lock(self, message_id: int) -> asyncio.Lock:
@@ -192,6 +195,37 @@ class ReactionRoleBot(discord.Client):
         LOG.info("ログイン完了: %s / サーバーID %d", self.user, self.guild_id)
         if not self.member_counter_loop.is_running():
             self.member_counter_loop.start()
+        if not self.remove_existing_unregistered_reactions.is_running():
+            self.remove_existing_unregistered_reactions.start()
+
+    @tasks.loop(count=1)
+    async def remove_existing_unregistered_reactions(self) -> None:
+        panels = self.database.execute(
+            "SELECT DISTINCT channel_id, message_id FROM reaction_roles"
+        ).fetchall()
+        for channel_id, message_id in panels:
+            async with self.message_lock(int(message_id)):
+                allowed = {
+                    key for (key,) in self.database.execute(
+                        "SELECT emoji_key FROM reaction_roles WHERE channel_id=? AND message_id=?",
+                        (channel_id, message_id),
+                    )
+                }
+                if not allowed:
+                    continue
+
+                channel = self.get_partial_messageable(int(channel_id), guild_id=self.guild_id)
+                try:
+                    message = await channel.fetch_message(int(message_id))
+                except discord.NotFound:
+                    continue
+                except discord.HTTPException as error:
+                    LOG.warning("リアクションロールのメッセージを取得できませんでした: message_id=%s status=%s", message_id, error.status)
+                    continue
+
+                for reaction in message.reactions:
+                    if emoji_key(reaction.emoji) not in allowed:
+                        await self.clear_unregistered_reaction(message, reaction.emoji)
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         await self.change_role(payload, add=True)
@@ -216,7 +250,9 @@ class ReactionRoleBot(discord.Client):
                     "SELECT 1 FROM reaction_roles WHERE channel_id=? AND message_id=? LIMIT 1",
                     message_key,
                 ).fetchone():
-                    await self.clear_unregistered_reaction(payload)
+                    channel = self.get_partial_messageable(payload.channel_id, guild_id=self.guild_id)
+                    message = channel.get_partial_message(payload.message_id)
+                    await self.clear_unregistered_reaction(message, payload.emoji)
                 return
             if payload.burst:
                 return
@@ -242,17 +278,17 @@ class ReactionRoleBot(discord.Client):
             except discord.HTTPException:
                 LOG.exception("ロール操作失敗: member_id=%s role_id=%s", payload.user_id, role.id)
 
-    async def clear_unregistered_reaction(self, payload: discord.RawReactionActionEvent) -> None:
-        channel = self.get_partial_messageable(payload.channel_id, guild_id=self.guild_id)
-        message = channel.get_partial_message(payload.message_id)
+    async def clear_unregistered_reaction(
+        self, message: discord.PartialMessage, emoji: str | discord.Emoji | discord.PartialEmoji,
+    ) -> None:
         try:
-            await message.clear_reaction(payload.emoji)
+            await message.clear_reaction(emoji)
         except discord.NotFound:
             return
         except discord.Forbidden:
-            LOG.warning("指定外リアクションの削除には「メッセージの管理」権限が必要です: channel_id=%s", payload.channel_id)
+            LOG.warning("指定外リアクションの削除には「メッセージの管理」権限が必要です: channel_id=%s", message.channel.id)
         except discord.HTTPException as error:
-            LOG.warning("指定外リアクションの削除に失敗しました: message_id=%s status=%s", payload.message_id, error.status)
+            LOG.warning("指定外リアクションの削除に失敗しました: message_id=%s status=%s", message.id, error.status)
 
     async def add_binding(self, message_link: str, emoji: str, role: discord.Role) -> None:
         channel_id, message_id = parse_message_link(message_link, self.guild_id)
